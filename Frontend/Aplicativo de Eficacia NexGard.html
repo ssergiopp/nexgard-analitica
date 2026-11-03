@@ -198,6 +198,14 @@ svg{width:100%;height:auto;display:block}
 tr.hecho td{color:var(--mut)}tr.hecho td:first-child{text-decoration:line-through}
 .nv{width:100%;min-width:150px}
 .ponly{display:none}
+.ajw{display:none;align-items:center;gap:4px;margin-top:6px}
+#ctab.edit .ajw{display:flex}
+.adj{width:78px;background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:5px 8px;color:var(--ink)}
+.rst{border:0;background:none;color:var(--g);cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:6px}.rst:active{opacity:.6}
+.ajn{font-size:.75rem;color:var(--ac);margin-top:2px}
+td.ajustado .pct s{background:var(--ac)!important}
+.ajbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--tint);border-radius:var(--r-md);padding:10px 14px;margin-bottom:12px}
+.ca{width:90px}
 .cm-btns{display:flex;gap:8px;flex-wrap:wrap}
 
 /* PDF (imprimir → Guardar como PDF) */
@@ -232,6 +240,7 @@ tr.hecho td{color:var(--mut)}tr.hecho td:first-child{text-decoration:line-throug
   .pct{min-width:90px}
   .ca{border:0!important;background:none!important;padding:0!important;min-height:0;width:auto;font-size:8pt}
   .ca::placeholder{color:transparent}
+  .ajn{font-size:7pt;color:#b25000}
   .pct{gap:6px;margin-top:2px}.pct b{font-size:8pt}.pct i{height:4px}
   th small{font-size:7pt}
 }
@@ -506,26 +515,45 @@ $("#cup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{const i=+inp.
 ["#cmeta","#m0","#m1","#m2","#m3"].forEach(s=>$(s).oninput=cchk);
 $("#gc").onclick=()=>{home.hidden=true;$("#com").hidden=false;scrollTo(0,0)};
 $("#cback").onclick=()=>{$("#com").hidden=true;home.hidden=false};
-function cfila(a){const meta=cmeta(),M=cmon(),av=act[a.asesor],c=[meta>0?a.unidades/meta*100:null,a.pct_cobertura,av===""||av==null?null:+av,a.pct_sgi];
-  const p=c.map((v,i)=>v==null||!isFinite(v)?0:M[i]*Math.min(Math.max(v,0),100)/100);return{c,p,t:p.reduce((x,y)=>x+y,0)}}
+// Ajustes manuales: {asesor: {0: %, 1: %, 3: %}} reemplazan el % calculado de Sell Out, Cobertura y SGI.
+// Activaciones (ítem 2) siempre es manual y se guarda en `act`. Todo queda en este navegador.
+let adj={};try{adj=JSON.parse(localStorage.getItem("nx_adj")||"{}")}catch(e){}
+const savAdj=()=>{try{localStorage.setItem("nx_adj",JSON.stringify(adj))}catch(e){}};
+const ITN=["Sell Out","Cobertura","Activaciones","SGI"];
+function cfila(a){const meta=cmeta(),M=cmon(),av=act[a.asesor],o=adj[a.asesor]||{};
+  const calc=[meta>0?a.unidades/meta*100:null,a.pct_cobertura,av===""||av==null?null:+av,a.pct_sgi];
+  const aj=[0,1,2,3].map(k=>k!==2&&o[k]!=null),c=calc.map((v,k)=>aj[k]?+o[k]:v);
+  const p=c.map((v,i)=>v==null||!isFinite(v)?0:M[i]*Math.min(Math.max(v,0),100)/100);return{calc,c,aj,p,t:p.reduce((x,y)=>x+y,0)}}
 const bar=v=>`<div class="pct${v>=100?" ok":""}"><i><s style="width:${Math.min(Math.max(v||0,0),100)}%"></s></i><b>${pc(v)}</b></div>`;
-function cupd(){let tot=0;const M=cmon(),max=M.reduce((x,y)=>x+y,0);
+function cupd(){let tot=0,nAj=0;const M=cmon(),max=M.reduce((x,y)=>x+y,0);
   CD.asesores.forEach((a,i)=>{const F=cfila(a);tot+=F.t;const tr=$(`#cr${i}`);
-    tr.querySelector("[data-s]").innerHTML=`${a.unidades} / ${cmeta()||"–"}`+bar(F.c[0]);
+    tr.querySelector('[data-c="0"] .det').textContent=`${a.unidades} / ${cmeta()||"–"}`;
+    [0,1,3].forEach(k=>{const td=tr.querySelector(`[data-c="${k}"]`);td.querySelector(".bw").innerHTML=bar(F.c[k]);td.classList.toggle("ajustado",F.aj[k]);
+      td.querySelector(".ajn").textContent=F.aj[k]?`Ajustado · calculado ${pc(F.calc[k])}`:"";td.querySelector(".adj").placeholder=F.calc[k]==null?"–":String(Math.round(F.calc[k]*10)/10);if(F.aj[k])nAj++});
     F.p.forEach((v,k)=>tr.querySelector(`[data-p="${k}"]`).textContent=pesos(v));tr.querySelector("[data-t]").innerHTML=`<b>${pesos(F.t)}</b>`});
   $("#cparam").textContent=`Meta mensual de Sell Out: ${cmeta()||"–"} unidades · Montos: Sell Out ${pesos(M[0])}, Cobertura ${pesos(M[1])}, Activaciones ${pesos(M[2])}, SGI ${pesos(M[3])}${CD.periodo_ventas?" · Ventas del "+CD.periodo_ventas:""}`;
-  const n=CD.asesores.length;$("#ckpi").innerHTML=K("Asesores",n)+K("Total a pagar",pesos(tot))+K("Máximo posible",pesos(max*n))+K("Promedio por asesor",pesos(n?tot/n:0))+K("Cumplimiento global",pc(max*n?tot/(max*n)*100:null))}
+  const n=CD.asesores.length;$("#ckpi").innerHTML=K("Asesores",n)+K("Total a pagar",pesos(tot))+K("Máximo posible",pesos(max*n))+K("Promedio por asesor",pesos(n?tot/n:0))+K("Cumplimiento global",pc(max*n?tot/(max*n)*100:null))+(nAj?K("Calificaciones ajustadas",nAj):"");
+  $("#cajn").hidden=!nAj}
+function celda(a,k,det){const v=(adj[a.asesor]||{})[k];
+  return`<td data-c="${k}"><div class="det">${det}</div><div class="bw"></div><div class="ajw noprint"><input class="adj" data-a="${esc(a.asesor)}" data-k="${k}" type="number" min="0" max="200" step="0.1" value="${v??""}" aria-label="Ajustar ${ITN[k]} de ${esc(a.asesor)}"><button class="rst" type="button" data-a="${esc(a.asesor)}" data-k="${k}" title="Quitar ajuste" aria-label="Quitar ajuste">↺</button></div><div class="ajn"></div></td>`}
 function crender(){const A=CD.asesores;
-  $("#cres").innerHTML=`${CD.alertas.length?`<div class="card" style="margin-top:20px">${CD.alertas.map(x=>`<p class="note">⚠ ${esc(x)}</p>`).join("")}</div>`:""}
+  $("#cres").innerHTML=`${CD.alertas.length?`<div class="card alerta" style="margin-top:20px">${CD.alertas.map(x=>`<p class="note">${esc(x)}</p>`).join("")}</div>`:""}
   <p class="note ponly pfecha"></p><p class="ponly" id="cparam"></p><div class="cm-kpis" id="ckpi"></div>
-  <div class="card"><div class="cm-bar"><h2>Comisión por asesor</h2><div class="cm-btns noprint"><button class="btn alt" id="ccopy" style="padding:10px 20px">Copiar tabla para Excel</button><button class="btn alt" id="cpdf" style="padding:10px 20px">Descargar PDF</button></div></div>
+  <div class="card"><div class="cm-bar"><h2>Comisión por asesor</h2><div class="cm-btns noprint"><button class="btn alt" id="cedit" style="padding:10px 20px" aria-pressed="false">Ajustar calificaciones</button><button class="btn alt" id="ccopy" style="padding:10px 20px">Copiar tabla para Excel</button><button class="btn alt" id="cpdf" style="padding:10px 20px">Descargar PDF</button></div></div>
+  <div class="ajbar noprint" id="cajbar" hidden><p class="note" style="margin:0">Escribe el % que quieres otorgar en Sell Out, Cobertura o SGI. Vacío = usa el valor calculado (se muestra en gris). ↺ quita el ajuste.</p><button class="btn alt" id="cclr" style="padding:8px 16px">Quitar todos los ajustes</button></div>
   <div class="tw"><table id="ctab"><thead><tr><th>Asesor</th><th>Sell Out<br><small>unidades / meta</small></th><th>Cobertura<br><small>efectivas / programadas</small></th><th>Activaciones<br><small>calificación %</small></th><th>SGI<br><small>jornadas completas / días</small></th><th>$ Sell Out</th><th>$ Cobertura</th><th>$ Activaciones</th><th>$ SGI</th><th>Total</th></tr></thead>
-  <tbody>${A.map((a,i)=>`<tr id="cr${i}"><td>${esc(a.asesor)}</td><td data-s></td><td>${a.efectivas} / ${nf(a.programadas)}${bar(a.pct_cobertura)}</td>
-   <td><input class="ca" data-a="${esc(a.asesor)}" type="number" min="0" max="100" step="1" placeholder="0–100" value="${esc(act[a.asesor]??"")}" style="width:90px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px"></td>
-   <td>${a.jornadas_completas} / ${a.dias}${bar(a.pct_sgi)}</td><td data-p="0"></td><td data-p="1"></td><td data-p="2"></td><td data-p="3"></td><td data-t></td></tr>`).join("")}</tbody></table></div>
-  <p class="note" style="margin-top:12px">Pago de cada componente = monto × cumplimiento (máximo 100 %). Sell Out = unidades de venta teórica${CD.periodo_ventas?" ("+CD.periodo_ventas+")":""} ÷ meta. Cobertura = visitas efectivas ÷ suma de FRECUENCIA MES de los PdV a cargo. SGI = días con inicio y fin de jornada ÷ días trabajados. Activaciones se califica a mano y queda guardada en este navegador.</p></div>`;
+  <tbody>${A.map((a,i)=>`<tr id="cr${i}"><td>${esc(a.asesor)}</td>${celda(a,0,"")}${celda(a,1,`${a.efectivas} / ${nf(a.programadas)}`)}
+   <td><input class="ca" data-a="${esc(a.asesor)}" type="number" min="0" max="100" step="1" placeholder="0–100" value="${esc(act[a.asesor]??"")}"></td>
+   ${celda(a,3,`${a.jornadas_completas} / ${a.dias}`)}<td data-p="0"></td><td data-p="1"></td><td data-p="2"></td><td data-p="3"></td><td data-t></td></tr>`).join("")}</tbody></table></div>
+  <p class="note" id="cajn" style="margin-top:10px" hidden>Las calificaciones marcadas como “Ajustado” fueron modificadas a mano; se muestra el valor calculado como referencia.</p>
+  <p class="note" style="margin-top:8px">Pago de cada componente = monto × calificación (máximo 100 %). Sell Out = unidades de venta teórica${CD.periodo_ventas?" ("+CD.periodo_ventas+")":""} ÷ meta. Cobertura = visitas efectivas ÷ suma de FRECUENCIA MES de los PdV a cargo. SGI = días con inicio y fin de jornada ÷ días trabajados. Activaciones y los ajustes se escriben a mano y quedan guardados en este navegador.</p></div>`;
   $("#cres").querySelectorAll(".ca").forEach(i=>i.oninput=()=>{const v=i.value;if(v==="")delete act[i.dataset.a];else act[i.dataset.a]=Math.min(Math.max(+v,0),100);try{localStorage.setItem("nx_act",JSON.stringify(act))}catch(e){}cupd()});
-  $("#ccopy").onclick=async()=>{const b=$("#ccopy"),t=["Asesor\tUnidades\t% Sell Out\t% Cobertura\t% Activaciones\t% SGI\tSell Out\tCobertura\tActivaciones\tSGI\tTotal",...A.map(a=>{const F=cfila(a),f=v=>v==null||!isFinite(v)?"":String(Math.round(v*10)/10).replace(".",",");return[a.asesor,a.unidades,...F.c.map(f),...F.p.map(v=>Math.round(v)),Math.round(F.t)].join("\t")})].join("\n");
+  const setAdj=(a,k,v)=>{const o=adj[a]||(adj[a]={});if(v===""||v==null||!isFinite(+v))delete o[k];else o[k]=Math.min(Math.max(+v,0),200);if(!Object.keys(o).length)delete adj[a];savAdj();cupd()};
+  $("#cres").querySelectorAll(".adj").forEach(i=>i.oninput=()=>setAdj(i.dataset.a,i.dataset.k,i.value));
+  $("#cres").querySelectorAll(".rst").forEach(b=>b.onclick=()=>{const i=b.previousElementSibling;i.value="";setAdj(b.dataset.a,b.dataset.k,"")});
+  $("#cedit").onclick=()=>{const on=!$("#ctab").classList.toggle("edit")?false:true;$("#cedit").setAttribute("aria-pressed",on);$("#cedit").textContent=on?"Listo":"Ajustar calificaciones";$("#cajbar").hidden=!on};
+  $("#cclr").onclick=()=>{if(!Object.keys(adj).length)return;adj={};savAdj();$("#cres").querySelectorAll(".adj").forEach(i=>i.value="");cupd()};
+  $("#ccopy").onclick=async()=>{const b=$("#ccopy"),t=["Asesor\tUnidades\t% Sell Out\t% Cobertura\t% Activaciones\t% SGI\tSell Out\tCobertura\tActivaciones\tSGI\tTotal\tAjustes manuales",...A.map(a=>{const F=cfila(a),f=v=>v==null||!isFinite(v)?"":String(Math.round(v*10)/10).replace(".",",");return[a.asesor,a.unidades,...F.c.map(f),...F.p.map(v=>Math.round(v)),Math.round(F.t),[0,1,3].filter(k=>F.aj[k]).map(k=>`${ITN[k]} (calculado ${f(F.calc[k])})`).join("; ")].join("\t")})].join("\n");
     try{await navigator.clipboard.writeText(t);b.textContent="Copiada"}catch(e){b.textContent="No se pudo copiar"}setTimeout(()=>b.textContent="Copiar tabla para Excel",2500)};
   $("#cpdf").onclick=()=>imprimir("Comisiones NexGard");
   cupd();$("#cres").classList.add("show");$("#cres").scrollIntoView({behavior:"smooth"})}
