@@ -4,7 +4,8 @@ import re
 import numpy as np
 import pandas as pd
 
-from lectura import ErrorArchivo, exigir, fecha, limpio, norm_txt, num, r
+from asesores import nombres
+from lectura import ErrorArchivo, ciudad, exigir, fecha, limpio, norm_txt, num, r
 
 COLS_ASESOR = ("COLABORADOR_A", "COLABORADOR", "ASESOR", "MERCAIMPULSADOR")
 NUMERICAS = ("NUMERICA",)  # 'Entrada númerica'
@@ -73,14 +74,29 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
 
     visitas = enc.dropna(subset=["_id"]).drop_duplicates("_id")
     encuestados = set(visitas["_id"].astype("int64"))
-    # Cadenas con al menos un punto encuestado (por nombre del PdV en la encuesta)
-    cad_ok = {c for c in visitas["NOMBRE"].map(cadena) if c}
+    # Cadena + ciudad con al menos un punto encuestado. La herencia solo aplica dentro de la misma ciudad.
+    ciud_v = visitas["CIUDAD"] if "CIUDAD" in visitas else pd.Series("", index=visitas.index)
+    cad_ok = {(c, ciudad(k)) for c, k in zip(visitas["NOMBRE"].map(cadena), ciud_v) if c}
 
     maestro["cadena"] = maestro["pdv"].map(cadena)
+    hereda = [c != "" and (c, ciudad(k)) in cad_ok for c, k in zip(maestro["cadena"], maestro["ciudad"])]
     maestro["estado"] = np.where(
         maestro["id"].isin(encuestados), "Encuestado",
-        np.where(maestro["cadena"].isin(cad_ok) & (maestro["cadena"] != ""), "Heredado por cadena", "Faltante"),
+        np.where(hereda, "Heredado por cadena", "Faltante"),
     )
+
+    # PdV encuestados que no están en PDVS: se suman al asesor que hizo la encuesta, con su ciudad.
+    fuera = visitas[~visitas["_id"].astype("int64").isin(set(maestro["id"]))]
+    if len(fuera):
+        # El nombre oficial se deduce con todas las visitas del usuario (los puntos fuera de PDVS no votan).
+        quien = (nombres(maestro, visitas, "ID_USUARIO", "ID_SUCURSAL", "ASESOR").loc[fuera.index]
+                 if {"ID_USUARIO", "ASESOR"} <= set(fuera.columns) else fuera.get("ASESOR", "").map(limpio))
+        extra = pd.DataFrame({
+            "id": fuera["_id"].astype("int64"), "pdv": fuera["NOMBRE"].map(limpio), "dir": "",
+            "ciudad": fuera["CIUDAD"].map(limpio) if "CIUDAD" in fuera else "", "asesor": quien,
+            "cadena": fuera["NOMBRE"].map(cadena), "estado": "Encuestado",
+        })
+        maestro = pd.concat([maestro, extra], ignore_index=True)
 
     g = maestro.groupby("asesor")
     asesores = [{
@@ -96,8 +112,6 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
     falt = maestro[maestro.estado == "Faltante"].sort_values(["asesor", "pdv"])
     faltantes = [{"id": int(x.id), "pdv": x.pdv, "asesor": x.asesor, "dir": x.dir, "ciudad": x.ciudad}
                  for x in falt.itertuples()]
-
-    fuera = visitas[~visitas["_id"].astype("int64").isin(set(maestro["id"]))]
 
     total = len(maestro)
     cubiertos = int((maestro.estado != "Faltante").sum())

@@ -21,13 +21,14 @@ def ventas(df):
         "pedido": df["ID_PEDIDO"] if "ID_PEDIDO" in df else df.index,
         "pdv": num(df["ID_SUCURSAL"]) if "ID_SUCURSAL" in df else np.nan,
     })
-    # Alertas: líneas con cantidad ≥ 100 y ≥ 20 veces la mediana del SKU (posible error de digitación).
+    # Líneas con cantidad ≥ 100 y ≥ 20 veces la mediana del SKU: error de digitación, se excluyen.
     med = d.groupby("sku").q.transform("median")
     raro = d[(d.q >= 100) & (d.q >= 20 * med)]
     miles = lambda v: f"{int(v):,}".replace(",", ".")  # noqa: E731
-    alertas = [f"{limpio(df.loc[i, 'SUCURSAL']) if 'SUCURSAL' in df else ''} · {x.sku} · {miles(x.q)} unidades "
-               f"({x.f.strftime('%d/%m/%Y') if pd.notna(x.f) else 's/f'}). Revisar: la mediana del SKU es {miles(med[i])}."
+    alertas = [f"Excluida: {limpio(df.loc[i, 'SUCURSAL']) if 'SUCURSAL' in df else ''} · {x.sku} · {miles(x.q)} unidades "
+               f"({x.f.strftime('%d/%m/%Y') if pd.notna(x.f) else 's/f'}); la mediana del SKU es {miles(med[i])}."
                for i, x in raro.iterrows()]
+    d = d.drop(raro.index)
     tot = d.v.sum()
     fds = d[d.f.dt.dayofweek.isin([4, 5, 6])].v.sum()  # vie, sáb, dom
     ped = d.groupby("pedido").v.sum()
@@ -47,6 +48,7 @@ def ventas(df):
         "asesores": [[a, r(x.q, 0), r(x.v / 1e6, 2), int(x.pedidos)] for a, x in asesor.iterrows()],
         "_diaria": d.groupby("f").v.sum() / 1e6,
         "_pdv": d.dropna(subset=["pdv"]).groupby("pdv").v.sum(),
+        "_idx": d.index,  # filas válidas (sin atípicas), las usa comisiones
     }
 
 

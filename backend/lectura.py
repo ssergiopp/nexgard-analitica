@@ -35,6 +35,16 @@ def limpio(v) -> str:
     return re.sub(r"\s+", " ", str(v)).strip()
 
 
+_ALIAS_CIUDAD = {"MANIZALEZ": "MANIZALES", "VILLADELROSARIO": "VILLAROSARIO", "CALI": "SANTIAGODECALI",
+                 "BOGOTADC": "BOGOTA"}
+
+
+def ciudad(v) -> str:
+    """Clave de ciudad tolerante a la escritura: 'RIO NEGRO' = 'RIONEGRO', 'MANIZALEZ' = 'MANIZALES'."""
+    k = re.sub(r"[^A-Z]", "", norm_txt(v))
+    return _ALIAS_CIUDAD.get(k, k)
+
+
 def _csv(data: bytes) -> pd.DataFrame:
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:

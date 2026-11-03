@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
+import comisiones
 import encuestas
 import gerencial
 from lectura import ErrorArchivo, leer
@@ -53,6 +54,15 @@ async def api_encuestas(
     if periodo not in ("Mensual", "Universal"):
         raise ErrorArchivo("El periodo debe ser Mensual o Universal.")
     return encuestas.analizar(await _leer(cadenas), await _leer(rutero, "PDVS"), await _leer(encuesta), periodo, mes)
+
+
+@app.post("/api/comisiones")
+async def api_comisiones(
+    ventas: UploadFile = File(...), cobertura: UploadFile = File(...),
+    rutero: UploadFile = File(...), momentos: UploadFile = File(...),
+):
+    return comisiones.analizar(await _leer(ventas), await _leer(cobertura), await _leer(rutero, "PDVS"),
+                               await _leer(momentos))
 
 
 @app.post("/api/gerencial")
