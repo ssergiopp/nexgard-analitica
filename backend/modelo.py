@@ -82,7 +82,12 @@ def comparar_grupos(a: pd.Series, b: pd.Series, na: str, nb: str):
     d = a.mean() - b.mean()
     se = math.sqrt(a.var(ddof=1) / len(a) + b.var(ddof=1) / len(b))
     p = _p_normal(d / se) if se else 1
-    return {"grupos": [[na, int(len(a)), r(a.mean(), 3)], [nb, int(len(b)), r(b.mean(), 3)]],
+
+    def g(nombre, s):  # [nombre, n, media, ic95_inferior, ic95_superior]
+        h = 1.96 * s.std(ddof=1) / math.sqrt(len(s))
+        return [nombre, int(len(s)), r(s.mean(), 3), r(s.mean() - h, 3), r(s.mean() + h, 3)]
+
+    return {"grupos": [g(na, a), g(nb, b)],
             "diferencia": r(d, 3), "ic95": [r(d - 1.96 * se, 3), r(d + 1.96 * se, 3)],
             "p_valor": r(p, 4), "significativa": bool(p < 0.05)}
 
@@ -96,4 +101,5 @@ def correlacion(x: pd.Series, y: pd.Series):
     rs = df.x.rank().corr(df.y.rank())
     z = math.atanh(max(min(rs, 0.999999), -0.999999)) * math.sqrt(n - 3)
     return {"n": n, "pearson": r(rp, 3), "spearman": r(rs, 3), "p_valor": r(_p_normal(z), 4),
-            "significativa": bool(_p_normal(z) < 0.05)}
+            "significativa": bool(_p_normal(z) < 0.05),
+            "puntos": [[r(a, 1), r(b, 3)] for a, b in df.head(500).itertuples(index=False)]}
