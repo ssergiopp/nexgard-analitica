@@ -250,6 +250,10 @@ td.ajustado .pct s{background:var(--ac)!important}
 
 
 /* Interactividad */
+.asel{display:flex;justify-content:flex-start;margin:4px 0 14px}
+.asel select{min-width:260px;font-size:1rem;font-weight:500}
+.asesor-ban{display:inline-block;margin:0 0 14px;padding:8px 14px;border-radius:var(--r-sm);background:var(--tint);color:var(--ink);font-size:1rem}
+.asesor-ban b{color:var(--g)}
 .hbw{position:relative}
 .hctl{display:flex;gap:4px;justify-content:flex-end;margin:-6px 0 6px}
 .hctl button{border:1px solid var(--bd);background:var(--sf);color:var(--mut);font-size:.75rem;padding:3px 9px;border-radius:99px;cursor:pointer;transition:background .15s ease,color .15s ease}
@@ -327,7 +331,7 @@ h2.sec[aria-expanded="false"]::after{rotate:-45deg;translate:0 0}
   </div>
 
   <div class="res" id="res">
-    <p class="note ponly pfecha"></p><p class="note" id="einfo"></p><div class="kg" id="ekpi"></div>
+    <p class="note ponly pfecha"></p><div class="asel noprint"><label class="flt" for="easel">Ver análisis de <select id="easel"><option value="">Todos los asesores</option></select></label></div><p class="asesor-ban" id="eban" hidden></p><p class="note" id="einfo"></p><div class="kg" id="ekpi"></div>
     <div class="cols">
       <div class="card"><h2>Asesores</h2>
         <div class="tw"><table><thead><tr><th>Asesor</th><th>Encuestados con cadenas</th><th>Puntos faltantes</th><th>Puntos a cargo</th></tr></thead><tbody id="ases"></tbody></table></div></div>
@@ -382,7 +386,7 @@ $("#go").onclick=()=>{home.hidden=true;st.hidden=false;scrollTo(0,0);vg()};
 $("#back").onclick=()=>{st.hidden=true;home.hidden=false;vg()};
 const files=[null,null,null],base=["Insertar .csv o .xlsx","Insertar .csv o .xlsx","Insertar la encuesta .csv o .xlsx"];
 document.querySelectorAll(".drop").forEach((d,i)=>{const inp=d.querySelector("input");
- inp.onchange=()=>{files[i]=inp.files[0]||null;d.querySelector("[data-n]").textContent=files[i]?files[i].name:base[i];d.classList.toggle("on",!!files[i]);chk()}});
+ inp.onchange=()=>{files[i]=inp.files[0]||null;$("#easel").value="";d.querySelector("[data-n]").textContent=files[i]?files[i].name:base[i];d.classList.toggle("on",!!files[i]);chk()}});
 document.querySelectorAll('[name=per]').forEach(c=>c.onchange=()=>{if(c.checked)document.querySelectorAll('[name=per]').forEach(o=>{if(o!==c)o.checked=false});chk()});
 function chk(){const ok=files.every(Boolean)&&document.querySelector('[name=per]:checked');$("#an").disabled=!ok;$("#hint").textContent=ok?"Listo para analizar.":"Carga los tres archivos y elige Mensual o Universal."}
 // ===== ENCUESTAS (procesamiento real en el backend: POST /api/encuestas) =====
@@ -417,13 +421,13 @@ function charts(){const P=ER.preguntas,cat=P.filter(q=>q.tipo==="categorica"),nu
   if(num.length)h+=`<div class="chart wide"><h3>Respuestas numéricas (precios)</h3><div class="tw"><table><thead><tr><th>Pregunta</th><th>n</th><th>Media</th><th>IC 95 %</th><th>Mediana</th><th>Mín – Máx</th><th>CV</th></tr></thead><tbody>${num.map(q=>`<tr><td>${esc(q.pregunta)}</td><td>${q.n}${q.atipicos?` <small title="valores atípicos excluidos">(−${q.atipicos})</small>`:""}</td><td>${nf(q.media)}</td><td>${nf(q.ic95[0])} a ${nf(q.ic95[1])}</td><td>${nf(q.mediana)}</td><td>${nf(q.min)} – ${nf(q.max)}</td><td>${q.cv??"–"} %</td></tr>`).join("")}</tbody></table></div><p class="note" style="margin-top:8px">Se excluyen atípicos (fuera de Q1 − 3·RIC y Q3 + 3·RIC). CV = dispersión de precios entre puntos.</p></div>`;
   $("#ch").innerHTML=h||'<p class="note">La encuesta no tiene preguntas graficables.</p>';tips($("#ch"))}
 async function analizar(){const per=document.querySelector('[name=per]:checked').value,fd=new FormData();
-  fd.append("cadenas",files[0]);fd.append("rutero",files[1]);fd.append("encuesta",files[2]);fd.append("periodo",per);if(per==="Mensual"&&$("#mes").value)fd.append("mes",$("#mes").value);
+  fd.append("cadenas",files[0]);fd.append("rutero",files[1]);fd.append("encuesta",files[2]);fd.append("periodo",per);if(per==="Mensual"&&$("#mes").value)fd.append("mes",$("#mes").value);if($("#easel").value)fd.append("asesor",$("#easel").value);
   const b=$("#an");b.disabled=true;$("#hint").textContent="Procesando…";
   try{ER=await api("/api/encuestas",fd);const R=ER.resumen;
-    $("#mes").innerHTML=R.meses.map(m=>`<option${m===R.mes?" selected":""}>${m}</option>`).join("");$("#mesw").hidden=per!=="Mensual";
+    $("#mes").innerHTML=R.meses.map(m=>`<option${m===R.mes?" selected":""}>${m}</option>`).join("");$("#mesw").hidden=per!=="Mensual";const sa=R.asesor||"";$("#easel").innerHTML='<option value="">Todos los asesores</option>'+ER.lista_asesores.map(a=>`<option${a===sa?" selected":""}>${esc(a)}</option>`).join("");$("#eban").hidden=!sa;$("#eban").innerHTML=sa?`Análisis de <b>${esc(sa)}</b>`:"";$("#res").dataset.asesor=sa;
     fill();ases();tab();charts();$("#hint").textContent="Listo.";$("#res").classList.add("show");interactivo($("#res"));$("#res").scrollIntoView({behavior:"smooth"})}
   catch(e){$("#hint").textContent=e.message}finally{b.disabled=false}}
-$("#an").onclick=analizar;$("#mes").onchange=analizar;
+$("#an").onclick=analizar;$("#mes").onchange=analizar;$("#easel").onchange=analizar;
 $("#epdf").onclick=()=>imprimir("Encuestas NexGard "+(ER?(ER.resumen.mes||"historico"):""));
 
 // ===== GRÁFICOS (SVG propio). Las etiquetas de datos (.plbl) solo aparecen en el PDF. =====
@@ -482,9 +486,10 @@ function secciones(root){const secs=[...root.querySelectorAll(":scope > h2.sec")
   nav.querySelectorAll("a").forEach(a=>a.onclick=e=>{e.preventDefault();const h=$("#"+a.getAttribute("href").slice(1));if(h.getAttribute("aria-expanded")==="false")h.click();h.scrollIntoView({behavior:"smooth",block:"start"})});
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){nav.querySelectorAll("a").forEach(a=>a.classList.toggle("act",a.dataset.s===e.target.id.slice(2)))}}),{rootMargin:"-30% 0px -60% 0px"});secs.forEach(h=>io.observe(h))}
 // ¿Hay algo distinto a la vista general?
-function sucio(r){return!!SEL||!!r.querySelector('.hctl [aria-pressed="true"], table.tocada, h2.sec[aria-expanded="false"]')||[...r.querySelectorAll(".tbus")].some(b=>b.value)||!!r.dataset.zoom}
+function sucio(r){return!!r.dataset.asesor||!!SEL||!!r.querySelector('.hctl [aria-pressed="true"], table.tocada, h2.sec[aria-expanded="false"]')||[...r.querySelectorAll(".tbus")].some(b=>b.value)||!!r.dataset.zoom}
 function vg(){const r=document.querySelector("section:not([hidden]) .res.show");$("#vgen").hidden=!(r&&sucio(r))}
 function vistaGeneral(){const r=document.querySelector("section:not([hidden]) .res.show");if(!r)return;SEL=null;
+  if(r.dataset.asesor){if(r.id==="res"){$("#easel").value="";analizar()}else if(r.id==="gres"){GAS="";$("#gen").onclick()}return}
   r.querySelectorAll(".hbw").forEach(w=>{const S=HB[w.dataset.hb];if(S){S.ord="val";S.top=0;hbDraw(w)}});
   r.querySelectorAll(".tbus").forEach(b=>{b.value="";b.oninput()});
   r.querySelectorAll("table.tocada").forEach(tb=>{const body=tb.tBodies[0];[...body.rows].sort((a,b)=>a.dataset.o-b.dataset.o).forEach(x=>body.appendChild(x));tb.classList.remove("tocada");tb.tHead.querySelectorAll("th").forEach(x=>x.setAttribute("aria-sort","none"))});
@@ -526,7 +531,8 @@ function scat(pts,xl,yl,fx,fy){const W=360,H=230,L=54,R=14,T=14,B=40,xm=Math.min
 // ===== GERENCIAL =====
 const gn=["Ventas","% Agotados","Cobertura","Momentos","Actividades","Obsequios"],gf=Array(6).fill(null);
 $("#gup").innerHTML=gn.map((n,i)=>`<label class="drop"><b>${n}</b><span data-n>Insertar .csv o .xlsx</span><input type="file" accept=".csv,.xlsx" data-g="${i}"></label>`).join("");
-$("#gup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{const i=+inp.dataset.g,f=inp.files[0]||null,d=inp.parentElement;gf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);const ok=gf.every(Boolean);$("#gen").disabled=!ok;$("#gh").textContent=ok?"Listo para generar.":"Carga los seis archivos para activar Generar."});
+let GAS="";
+$("#gup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{GAS="";const i=+inp.dataset.g,f=inp.files[0]||null,d=inp.parentElement;gf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);const ok=gf.every(Boolean);$("#gen").disabled=!ok;$("#gh").textContent=ok?"Listo para generar.":"Carga los seis archivos para activar Generar."});
 $("#gg").onclick=()=>{home.hidden=true;$("#ger").hidden=false;scrollTo(0,0);vg()};
 $("#gback").onclick=()=>{$("#ger").hidden=true;home.hidden=false;vg()};
 let n=60,d0=Date.UTC(2026,7,24),Y,FM,dw=i=>new Date(d0+i*864e5).getUTCDay(),wk=i=>[0,5,6].includes(dw(i)),fd=i=>{const d=new Date(d0+i*864e5);return d.getUTCDate()+"/"+(d.getUTCMonth()+1)};
@@ -558,7 +564,7 @@ function trend(F){const W=400,H=230,L=40,RX=W-10,X=i=>L+i/Math.max(n-1,1)*(RX-L)
   return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia">${o}<text class="tx" x="${L}" y="${H-8}">${fd(0)}</text><text class="tx" x="${RX}" y="${H-8}" text-anchor="end">${fd(n-1)}</text><text class="tx" x="${L}" y="12">millones por día</text></svg>`}
 
 $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momentos","actividades","obsequios"],fdat=new FormData();
-  keys.forEach((k,i)=>{if(gf[i])fdat.append(k,gf[i])});const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
+  keys.forEach((k,i)=>{if(gf[i])fdat.append(k,gf[i])});if(GAS)fdat.append("asesor",GAS);const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
   try{D=await api("/api/gerencial",fdat);$("#gh").textContent="Listo."}catch(e){$("#gh").textContent=e.message;b.disabled=false;return}b.disabled=false;
   const M=v=>v==null?"–":(Math.abs(v)<1?Math.round(v*100)/100:r1(v)).toLocaleString("es-CO")+" M",P=pc1,T=(h,rows)=>`<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   const G=(t,it,f,nota="")=>it&&it.length?C(t,(nota?`<p class="note">${nota}</p>`:"")+hb(it,f)):"",g2=(...c)=>{c=c.filter(Boolean);return c.length?`<div class="g2">${c.join("")}</div>`:""};
@@ -595,9 +601,10 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     (AV&&AV.grupos?R("Actividades y venta","Inferencial",`<p>Venta media por PdV: ${AV.grupos.map(g=>`${g[0].toLowerCase()} <b>${M(g[2])}</b> (${g[1]} PdV)`).join(", ")}.</p><p>Diferencia ${M(AV.diferencia)}, IC 95 % ${M(AV.ic95[0])} a ${M(AV.ic95[1])}; ${sig(AV.significativa)}.</p><p class="note">Barras: media; líneas: IC 95 % de cada grupo. Asociación, no causalidad.</p>`,AV.grupos[0].length>3?gbars(AV.grupos,M):""):"")+
     (MD.obsequio_vs_venta&&MD.obsequio_vs_venta.grupos?(OV=>R("Obsequios y venta","Inferencial",`<p>Venta media por PdV: ${OV.grupos.map(g=>`${g[0].toLowerCase()} <b>${M(g[2])}</b> (${g[1]} PdV)`).join(", ")}.</p><p>Diferencia ${M(OV.diferencia)}, IC 95 % ${M(OV.ic95[0])} a ${M(OV.ic95[1])}; ${sig(OV.significativa)}.</p><p class="note">Solo puntos con venta en el periodo. “Sin entrega registrada” incluye puntos que no tuvieron la encuesta de obsequios. Con pocas entregas por tipo de obsequio no es confiable medir el efecto de cada obsequio por separado.</p>`,gbars(OV.grupos,M)))(MD.obsequio_vs_venta):"")+
     (F?C('Pronóstico a 14 días <span class="chip">Predictiva</span>',`<p>Venta esperada en los próximos 14 días: <b>${M(Pr.total)}</b> (IC 95 % ${M(Pr.ic95_total[0])} a ${M(Pr.ic95_total[1])}).</p><div id="t2"></div><p class="note">Banda: intervalo del 95 % de cada día; línea punteada: tendencia.${Va?` Validación en los últimos ${Va.dias} días no vistos: ${Va.mape!=null?"MAPE "+r1(Va.mape)+" %, ":""}RMSE ${Va.rmse} M; el intervalo cubrió ${Va.cubiertos} de ${Va.dias} días.`:` Con ${S.n} días aún no hay datos suficientes para validar en días no vistos (se necesitan 28).`}</p>`,"wide"):`<p class="note">${esc(S.aviso||"")}</p>`)}
-  $("#gres").innerHTML=`<p class="note ponly pfecha"></p>`+h+'<button class="btn alt noprint" id="gpdf">Descargar PDF</button><p class="note noprint" style="margin-top:8px">Al guardar como PDF, desmarca “Encabezados y pies de página” para que no salga la dirección de la página.</p>';
+  $("#gres").innerHTML=`<p class="note ponly pfecha"></p><div class="asel noprint"><label class="flt" for="gasel">Ver análisis de <select id="gasel"><option value="">Todos los asesores</option>${(D.lista_asesores||[]).map(([i,nm])=>`<option value="${esc(i)}"${i===GAS?" selected":""}>${esc(nm)}</option>`).join("")}</select></label></div>${D.asesor?`<p class="asesor-ban">Análisis de <b>${esc(D.asesor)}</b></p>`:""}`+h+'<button class="btn alt noprint" id="gpdf">Descargar PDF</button><p class="note noprint" style="margin-top:8px">Al guardar como PDF, desmarca “Encabezados y pies de página” para que no salga la dirección de la página.</p>';
   if(S){if($("#t1"))ts($("#t1"),0);if($("#t2"))ts($("#t2"),1)}
   $("#gpdf").onclick=()=>imprimir("Informe gerencial NexGard"+(V?" "+V.kpi.desde.replace(/\//g,"-")+" a "+V.kpi.hasta.replace(/\//g,"-"):""));
+  $("#gres").dataset.asesor=GAS;$("#gasel").onchange=e=>{GAS=e.target.value;$("#gen").onclick()};
   $("#gres").classList.add("show");interactivo($("#gres"));$("#gres").scrollIntoView({behavior:"smooth"});tips($("#gres"))};
 
 // ===== COMISIONES (indicadores en el backend: POST /api/comisiones; el pago se calcula aquí) =====

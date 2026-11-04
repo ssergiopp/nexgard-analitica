@@ -56,7 +56,9 @@ def _buscador_cadenas(cadenas: pd.DataFrame):
     return cadena
 
 
-def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, periodo: str, mes: str | None):
+def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, periodo: str, mes: str | None,
+             asesor: str | None = None):
+    """`asesor`: si se indica, todo el resultado (puntos, faltantes, respuestas) es solo de ese asesor."""
     exigir(enc, ["ID_SUCURSAL", "NOMBRE", "FECHA_VISITA", "PREGUNTA", "RESPUESTA"], "encuesta")
     maestro = _maestro_pdv(rutero)
     cadena = _buscador_cadenas(cadenas)
@@ -98,6 +100,19 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
         })
         maestro = pd.concat([maestro, extra], ignore_index=True)
 
+    lista = sorted(maestro["asesor"].dropna().unique().tolist())
+    if asesor:
+        if asesor not in lista:
+            raise ErrorArchivo(f"El asesor '{asesor}' no tiene puntos a cargo en este rutero.")
+        # Respuestas del asesor: las que él registró (por ID de usuario) o las de sus puntos a cargo
+        suyos = set(maestro.loc[maestro.asesor == asesor, "id"])
+        quien = (nombres(maestro, enc, "ID_USUARIO", "ID_SUCURSAL", "ASESOR")
+                 if {"ID_USUARIO", "ASESOR"} <= set(enc.columns) else pd.Series("", index=enc.index))
+        enc = enc[(quien == asesor) | enc["_id"].isin(suyos)]
+        visitas = visitas.loc[visitas.index.isin(enc.index)]
+        fuera = fuera.loc[fuera.index.isin(enc.index)]
+        maestro = maestro[maestro.asesor == asesor]
+
     g = maestro.groupby("asesor")
     asesores = [{
         "asesor": a,
@@ -123,9 +138,10 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
         "faltantes": total - cubiertos, "avance": r(cubiertos / total * 100 if total else 0),
         "fuera_maestro": int(len(fuera)),
         "fuera_maestro_lista": [limpio(x) for x in fuera["NOMBRE"].head(50)],
+        "asesor": asesor,
     }
     return {"resumen": resumen, "asesores": asesores, "faltantes": faltantes,
-            "preguntas": _preguntas(enc), "semanas": _semanas(visitas)}
+            "preguntas": _preguntas(enc), "semanas": _semanas(visitas), "lista_asesores": lista}
 
 
 def _preguntas(enc: pd.DataFrame):

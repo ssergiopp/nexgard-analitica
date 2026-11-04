@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from lectura import exigir, familia, fecha, fecha_hora, limpio, norm_txt, num, pares, r
+from lectura import ErrorArchivo, exigir, familia, fecha, fecha_hora, limpio, norm_txt, num, pares, r
 from modelo import comparar_grupos, correlacion, serie_diaria
 
 
@@ -201,9 +201,45 @@ def obsequios(df):
     return out
 
 
-def analizar(arch: dict):
-    """arch: {nombre: DataFrame} con cualquiera de: ventas, agotados, cobertura, momentos, actividades, obsequios."""
+# Columna de ID de usuario y de nombre del asesor en cada archivo (el ID es el mismo en todos)
+COL_ASESOR = {"ventas": ("ID_ASESOR", "ASESOR"), "agotados": ("ID_USUARIO", "NOMBRE_PROMOTOR"),
+              "cobertura": ("ID_ASESOR", "ASESOR"), "momentos": ("ASESOR_ID", "NOMBRE_ASESOR"),
+              "actividades": ("ID_USUARIO", "PROM_MERCADERISTA_SUPERVISOR"), "obsequios": ("ID_ASESOR", "NOMBRE_ASESOR")}
+
+
+def lista_asesores(arch: dict):
+    """[[id, nombre], ...] con el nombre más frecuente de cada ID de usuario entre todos los archivos."""
+    filas = []
+    for k, df in arch.items():
+        ci, cn = COL_ASESOR.get(k, (None, None))
+        if ci in df and cn in df:
+            filas.append(pd.DataFrame({"id": df[ci].astype(str).str.strip(), "n": df[cn].map(limpio)}))
+    if not filas:
+        return []
+    t = pd.concat(filas)
+    t = t[(t.id != "") & (t.n != "")]
+    nom = t.groupby("id").n.agg(lambda s: s.mode().iloc[0])
+    return sorted([[i, n] for i, n in nom.items()], key=lambda x: x[1])
+
+
+def analizar(arch: dict, asesor: str | None = None):
+    """arch: {nombre: DataFrame} con cualquiera de: ventas, agotados, cobertura, momentos, actividades, obsequios.
+    `asesor`: ID de usuario; si se indica, todo el informe se calcula solo con sus registros."""
     R, avisos = {}, []
+    lista = lista_asesores(arch)
+    if asesor:
+        nombre = dict(lista).get(str(asesor))
+        if not nombre:
+            raise ErrorArchivo("El asesor elegido no aparece en los archivos.")
+        filtrado = {}
+        for k, df in arch.items():
+            ci = COL_ASESOR.get(k, (None,))[0]
+            d = df[df[ci].astype(str).str.strip() == str(asesor)] if ci in df else df.iloc[0:0]
+            if len(d):
+                filtrado[k] = d
+            else:
+                avisos.append(f"{nombre} no tiene registros en el archivo de {k}.")
+        arch = filtrado
     if "cobertura" in arch:
         R["cobertura"] = cobertura(arch["cobertura"])
     for k, f in (("ventas", ventas), ("agotados", agotados), ("momentos", momentos), ("obsequios", obsequios)):
@@ -229,6 +265,8 @@ def analizar(arch: dict):
         avisos.append("Sin archivo de ventas no se calcula el modelo de tendencia ni el pronóstico.")
     R["modelo"] = modelo
     R["avisos"] = avisos
+    R["lista_asesores"] = lista
+    R["asesor"] = dict(lista).get(str(asesor)) if asesor else None
     # quitar auxiliares internos
     for sec in R.values():
         if isinstance(sec, dict):

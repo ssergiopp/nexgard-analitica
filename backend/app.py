@@ -49,11 +49,11 @@ def salud():
 @app.post("/api/encuestas")
 async def api_encuestas(
     cadenas: UploadFile = File(...), rutero: UploadFile = File(...), encuesta: UploadFile = File(...),
-    periodo: str = Form("Mensual"), mes: str | None = Form(None),
+    periodo: str = Form("Mensual"), mes: str | None = Form(None), asesor: str | None = Form(None),
 ):
     if periodo not in ("Mensual", "Universal"):
         raise ErrorArchivo("El periodo debe ser Mensual o Universal.")
-    return encuestas.analizar(await _leer(cadenas), await _leer(rutero, "PDVS"), await _leer(encuesta), periodo, mes)
+    return encuestas.analizar(await _leer(cadenas), await _leer(rutero, "PDVS"), await _leer(encuesta), periodo, mes, asesor or None)
 
 
 @app.post("/api/comisiones")
@@ -70,10 +70,11 @@ async def api_gerencial(
     ventas: UploadFile | None = File(None), agotados: UploadFile | None = File(None),
     cobertura: UploadFile | None = File(None), momentos: UploadFile | None = File(None),
     actividades: UploadFile | None = File(None), obsequios: UploadFile | None = File(None),
+    asesor: str | None = Form(None),
 ):
     subidos = dict(ventas=ventas, agotados=agotados, cobertura=cobertura, momentos=momentos,
                    actividades=actividades, obsequios=obsequios)
     arch = {k: await _leer(f) for k, f in subidos.items() if f is not None and f.filename}
     if not arch:
         raise ErrorArchivo("Sube al menos un archivo.")
-    return gerencial.analizar(arch)
+    return gerencial.analizar(arch, asesor or None)
