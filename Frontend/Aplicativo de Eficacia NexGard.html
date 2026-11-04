@@ -207,13 +207,6 @@ td.ajustado .pct s{background:var(--ac)!important}
 .ajbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--tint);border-radius:var(--r-md);padding:10px 14px;margin-bottom:12px}
 .ca{width:90px}
 .cm-btns{display:flex;gap:8px;flex-wrap:wrap}
-.alertas{list-style:none;margin:0;padding:0;display:grid;gap:14px}
-.alertas li{position:relative;padding:2px 0 2px 18px;border-bottom:1px solid var(--bd);padding-bottom:12px}
-.alertas li:last-child{border-bottom:0;padding-bottom:0}
-.alertas li::before{content:"";position:absolute;left:0;top:8px;width:9px;height:9px;border-radius:50%;background:var(--ac)}
-.alertas li.alta::before{background:var(--bad)}
-.alertas b{font-weight:600}.alertas .niv{margin-left:8px;font-size:.75rem;color:var(--mut)}
-.alertas p{margin:4px 0 0;font-size:.9375rem}.alertas .acc{color:var(--mut);font-size:.875rem}
 
 /* PDF (imprimir → Guardar como PDF) */
 @page{size:A4;margin:14mm 12mm}
@@ -235,7 +228,7 @@ td.ajustado .pct s{background:var(--ac)!important}
   .kpi{padding:8px 10px;border-radius:8px}.kpi b{font-size:14pt}
   .g2{grid-template-columns:1fr 1fr!important;gap:10px;margin-bottom:10px}
   .mrow{grid-template-columns:1fr 1.15fr!important;gap:14px}
-  .chart,.kg,.cm-kpis,.mrow,.alertas li,svg{break-inside:avoid}
+  .chart,.kg,.cm-kpis,.mrow,svg{break-inside:avoid}
   h1,h2,h3,.sec{break-after:avoid}
   thead{display:table-header-group}
   .pnota{display:block!important}
@@ -327,13 +320,7 @@ td.ajustado .pct s{background:var(--ac)!important}
   <button class="back" id="gback">‹ Inicio</button>
   <h1 style="font-size:clamp(1.8rem,5vw,2.8rem)">Gerencial</h1>
   <div class="card ctl"><div class="up" id="gup"></div>
-    <div class="cm-opts" style="margin-top:18px">
-      <label class="cm-f" for="u1">Cobertura mínima (%)<input id="u1" type="number" min="0" max="100" step="1" value="70"></label>
-      <label class="cm-f" for="u2">Agotado máximo por SKU o regional (%)<input id="u2" type="number" min="0" max="100" step="1" value="25"></label>
-      <label class="cm-f" for="u3">Horas mínimas de jornada (mediana)<input id="u3" type="number" min="0" max="24" step="0.5" value="7"></label>
-    </div>
-    <p class="note" style="margin-top:8px">Umbrales para las alertas. Puedes cambiarlos después de generar.</p>
-    <button class="btn" id="gen" style="margin-top:12px" disabled>Generar</button>
+    <button class="btn" id="gen" style="margin-top:18px" disabled>Generar</button>
     <p class="note" id="gh" style="margin-top:10px">Carga los seis archivos para activar Generar.</p></div>
   <div class="res" id="gres"></div>
 </section>
@@ -488,21 +475,6 @@ function trend(F){const W=400,H=230,L=40,RX=W-10,X=i=>L+i/Math.max(n-1,1)*(RX-L)
   o+=`<line class="fit" x1="${X(0)}" y1="${y(a0)}" x2="${X(n-1)}" y2="${y(a1)}"/><text class="plbl" x="${X(0)+4}" y="${y(a0)-8}">${r1(a0)} M</text><text class="plbl" x="${X(n-1)}" y="${y(a1)-8}" text-anchor="end">${r1(a1)} M</text>`;
   return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia">${o}<text class="tx" x="${L}" y="${H-8}">${fd(0)}</text><text class="tx" x="${RX}" y="${H-8}" text-anchor="end">${fd(n-1)}</text><text class="tx" x="${L}" y="12">millones por día</text></svg>`}
 
-// ===== ALERTAS: reglas fijas sobre los indicadores, con umbrales editables =====
-let GD=null;
-function alertas(){if(!GD||!$("#galert"))return;const D=GD,u1=+$("#u1").value||0,u2=+$("#u2").value||0,u3=+$("#u3").value||0,L=[],P=pc1;
-  const add=(nivel,titulo,detalle,accion)=>L.push({nivel,titulo,detalle,accion});
-  const Cb=D.cobertura,A=D.agotados,Mo=D.momentos;
-  if(Cb){Cb.cobertura_regional.filter(x=>x[1]<u1).forEach(x=>add("alta",`Cobertura baja en ${x[0]}`,`${P(x[1])} de visitas efectivas (mínimo ${u1} %).`,"Revisar la ruta y las novedades de la regional; reasignar las visitas pendientes antes del cierre del mes."));
-    const ba=Cb.cobertura_asesor.filter(x=>x[1]<u1);if(ba.length)add("media",`${ba.length} asesor${ba.length>1?"es":""} con cobertura bajo ${u1} %`,ba.map(x=>`${x[0]} (${P(x[1])})`).join(", ")+".","Acompañamiento del supervisor y revisión de la carga de puntos de cada uno.");
-    const cerr=Cb.novedades.filter(x=>/YA NO EXISTE|CERRADO|NO COMERCIALIZA/i.test(x[0]));if(cerr.length)add("media","Puntos que ya no deben visitarse",cerr.map(x=>`${x[0].toLowerCase()}: ${x[1]}`).join("; ")+".","Depurar el maestro de PdV y el rutero para no programar visitas perdidas.")}
-  if(A){A.sku.filter(x=>x[1]>u2).forEach(x=>add("alta",`Agotado alto: ${x[0]}`,`${P(x[1])} de agotado en puntos que lo manejan (máximo ${u2} %).`,"Gestionar reposición con el distribuidor y revisar el pedido sugerido en los puntos afectados."));
-    A.regional.filter(x=>x[1][1]>u2).forEach(x=>add("media",`Agotado alto en ${x[0]}`,`${P(x[1][1])} de los registros están agotados.`,"Priorizar la toma de pedido en la regional en las próximas visitas."));
-    if(A.kpi.pct_causal_generica>50)add("media","Causales de agotado poco específicas",`${P(A.kpi.pct_causal_generica)} de los agotados tienen causal “AGOTADO”, “NO APLICA” o vacía.`,"Pedir en la app de campo que se tipifique la causa real (rotación, pedido insuficiente, cartera…).")}
-  if(Mo){const hj=Mo.horas_asesor.filter(x=>x[1]<u3);if(hj.length)add("media",`Jornadas cortas en ${hj.length} asesor${hj.length>1?"es":""}`,hj.map(x=>`${x[0]} (${r1(x[1]).toLocaleString("es-CO")} h)`).join(", ")+".",`Verificar las marcas de inicio y fin de jornada (mínimo ${u3} h).`)}
-  L.sort((a,b)=>(a.nivel==="alta"?0:1)-(b.nivel==="alta"?0:1));
-  $("#galert").innerHTML=L.length?`<div class="card"><ul class="alertas">${L.map(x=>`<li class="${x.nivel}"><b>${esc(x.titulo)}</b><span class="niv">${x.nivel==="alta"?"Prioridad alta":"Prioridad media"}</span><p>${esc(x.detalle)}</p><p class="acc">Acción sugerida: ${esc(x.accion)}</p></li>`).join("")}</ul><p class="note" style="margin-top:10px">Umbrales usados: cobertura mínima ${u1} %, agotado máximo ${u2} %, jornada mínima ${u3} h.</p></div>`:`<div class="card"><p>No hay alertas con los umbrales actuales (cobertura mínima ${u1} %, agotado máximo ${u2} %, jornada mínima ${u3} h).</p></div>`}
-["#u1","#u2","#u3"].forEach(s=>$(s).oninput=alertas);
 $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momentos","actividades","obsequios"],fdat=new FormData();
   keys.forEach((k,i)=>{if(gf[i])fdat.append(k,gf[i])});const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
   try{D=await api("/api/gerencial",fdat);$("#gh").textContent="Listo."}catch(e){$("#gh").textContent=e.message;b.disabled=false;return}b.disabled=false;
@@ -512,7 +484,6 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
   const SEC=t=>`<h2 class="sec${sec++?"":" first"}">${t}</h2>`;
   if(S){Y=S.y;n=S.n;d0=Date.parse(S.inicio);FM=null;if(S.ajuste){const F=S.ajuste;FM={...F,p:i=>F.a+F.b*i+F.dm[dw(i)]}}}
   if(D.avisos.length)h+=`<p class="note">${D.avisos.map(esc).join(" ")}</p>`;
-  GD=D;h+=SEC("Alertas y recomendaciones")+`<div id="galert"></div>`;
   if(Cb){h+=SEC("Cobertura")+`<div class="kg">${K("Cobertura (visitas efectivas)",P(Cb.kpi.cobertura))}${K("Visitas",nf(Cb.kpi.visitas))}${K("PdV visitados",nf(Cb.kpi.pdv_visitados))}${K("Minutos por visita (mediana)",nf(Cb.kpi.min_visita))}</div>`+
     g2(G("PdV visitados por asesor",Cb.pdv_por_asesor,v=>nf(v)+" PdV"),G("% de cobertura por asesor",Cb.cobertura_asesor,P))+
     g2(G("% de cobertura por regional",Cb.cobertura_regional,P),Cb.novedades.length?C("Novedades de visitas no efectivas",hb(Cb.novedades.slice(0,8).map(x=>[x[0],x[2]]),P)+`<p class="note" style="margin-top:6px">Porcentaje sobre el total de visitas.</p>`):"")}
@@ -544,7 +515,6 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     (F?C('Pronóstico a 14 días <span class="chip">Predictiva</span>',`<p>Venta esperada en los próximos 14 días: <b>${M(Pr.total)}</b> (IC 95 % ${M(Pr.ic95_total[0])} a ${M(Pr.ic95_total[1])}).</p><div id="t2"></div><p class="note">Banda: intervalo del 95 % de cada día; línea punteada: tendencia.${Va?` Validación en los últimos ${Va.dias} días no vistos: ${Va.mape!=null?"MAPE "+r1(Va.mape)+" %, ":""}RMSE ${Va.rmse} M; el intervalo cubrió ${Va.cubiertos} de ${Va.dias} días.`:` Con ${S.n} días aún no hay datos suficientes para validar en días no vistos (se necesitan 28).`}</p>`,"wide"):`<p class="note">${esc(S.aviso||"")}</p>`)}
   $("#gres").innerHTML=`<p class="note ponly pfecha"></p>`+h+'<button class="btn alt noprint" id="gpdf">Descargar PDF</button><p class="note noprint" style="margin-top:8px">Al guardar como PDF, desmarca “Encabezados y pies de página” para que no salga la dirección de la página.</p>';
   if(S){if($("#t1"))ts($("#t1"),0);if($("#t2"))ts($("#t2"),1)}
-  alertas();
   $("#gpdf").onclick=()=>imprimir("Informe gerencial NexGard"+(V?" "+V.kpi.desde.replace(/\//g,"-")+" a "+V.kpi.hasta.replace(/\//g,"-"):""));
   $("#gres").classList.add("show");$("#gres").scrollIntoView({behavior:"smooth"});tips($("#gres"))};
 
