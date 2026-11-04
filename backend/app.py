@@ -2,6 +2,7 @@
 
 Ejecutar desde la carpeta del proyecto:  python -m uvicorn app:app --app-dir backend --port 8000
 """
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, UploadFile
@@ -36,6 +37,17 @@ async def _leer(f: UploadFile, hoja=None):
     return leer(data, f.filename or "archivo", hoja)
 
 
+def _json(texto):
+    """Lee un JSON enviado como campo de formulario; si no es válido, se ignora."""
+    if not texto:
+        return None
+    try:
+        v = json.loads(texto)
+        return v if isinstance(v, dict) else None
+    except ValueError:
+        return None
+
+
 @app.get("/")
 def inicio():
     return FileResponse(FRONT)
@@ -50,10 +62,12 @@ def salud():
 async def api_encuestas(
     cadenas: UploadFile = File(...), rutero: UploadFile = File(...), encuesta: UploadFile = File(...),
     periodo: str = Form("Mensual"), mes: str | None = Form(None), asesor: str | None = Form(None),
+    vinculos: str | None = Form(None),
 ):
     if periodo not in ("Mensual", "Universal"):
         raise ErrorArchivo("El periodo debe ser Mensual o Universal.")
-    return encuestas.analizar(await _leer(cadenas), await _leer(rutero, "PDVS"), await _leer(encuesta), periodo, mes, asesor or None)
+    return encuestas.analizar(await _leer(cadenas), await _leer(rutero, "PDVS"), await _leer(encuesta), periodo, mes, asesor or None,
+                              _json(vinculos))
 
 
 @app.post("/api/comisiones")

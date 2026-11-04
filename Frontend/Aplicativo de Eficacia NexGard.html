@@ -249,6 +249,17 @@ td.ajustado .pct s{background:var(--ac)!important}
 }
 
 
+/* Vincular encuestas */
+.nvw{display:flex;gap:6px;align-items:center}
+.vin,.vdel{border:1px solid var(--bd);background:var(--sf);color:var(--g);border-radius:99px;padding:5px 12px;font-size:.8125rem;cursor:pointer;white-space:nowrap}
+.vin:active,.vdel:active{transform:scale(.96)}
+tr.vrow td{background:var(--tint)!important;padding:12px}
+.vbox .vhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}.vclose{margin-left:auto;border:0;background:none;color:var(--mut);font-size:1rem;cursor:pointer}
+.vq{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r-sm);padding:8px 12px;color:var(--ink)}
+.vres{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:260px;overflow:auto}
+.vres button{width:100%;text-align:left;display:flex;flex-direction:column;gap:2px;border:0;background:var(--sf);border-radius:var(--r-sm);padding:8px 12px;cursor:pointer}
+.vres button:hover{box-shadow:0 0 0 2px var(--g)}.vres span{font-size:.8125rem;color:var(--mut)}
+
 /* Interactividad */
 .asel{display:flex;justify-content:flex-start;margin:4px 0 14px}
 .asel select{min-width:260px;font-size:1rem;font-weight:500}
@@ -340,6 +351,8 @@ h2.sec[aria-expanded="false"]::after{rotate:-45deg;translate:0 0}
           <label class="flt">Asesor <select id="sa"></select></label>
         </div>
         <div class="tw"><table><thead><tr><th>PdV</th><th>Asesor</th><th>Dirección</th><th>Novedad</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+      <div class="card" id="vincard" hidden><h2>Puntos vinculados a mano</h2><p class="note">Faltantes que toman la encuesta de un punto que coincide (elegido con “Vincular”).</p>
+        <div class="tw"><table><thead><tr><th>PdV</th><th>Asesor</th><th>Encuesta usada</th><th class="noprint"></th></tr></thead><tbody id="vintb"></tbody></table></div></div>
       <div class="card ponly" id="novcard"><h2>Puntos con novedad</h2>
         <div class="tw"><table><thead><tr><th>PdV</th><th>Asesor</th><th>Dirección</th><th>Novedad</th></tr></thead><tbody id="novtb"></tbody></table></div></div>
     </div>
@@ -392,7 +405,8 @@ function chk(){const ok=files.every(Boolean)&&document.querySelector('[name=per]
 // ===== ENCUESTAS (procesamiento real en el backend: POST /api/encuestas) =====
 const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const nf=v=>v==null?"–":Number(v).toLocaleString("es-CO");
-let ER=null,nov={};try{nov=JSON.parse(localStorage.getItem("nx_nov")||"{}")}catch(e){}
+let ER=null,nov={},nvin={};try{nov=JSON.parse(localStorage.getItem("nx_nov")||"{}");nvin=JSON.parse(localStorage.getItem("nx_vin")||"{}")}catch(e){}
+const savVin=()=>{try{localStorage.setItem("nx_vin",JSON.stringify(nvin))}catch(e){}};
 const savNov=()=>{try{localStorage.setItem("nx_nov",JSON.stringify(nov))}catch(e){}};
 async function api(url,fd){let r;try{r=await fetch(url,{method:"POST",body:fd})}catch(e){throw new Error(location.protocol==="file:"?"Abre la plataforma desde http://localhost:8000 (ejecuta iniciar.bat).":"No hay conexión con el servidor.")}
   const j=await r.json().catch(()=>({error:"Respuesta inválida del servidor."}));if(!r.ok)throw new Error(j.error||("Error "+r.status));return j}
@@ -407,12 +421,13 @@ const conNov=id=>(nov[id]||"").trim();
 function ases(){const res={};ER.faltantes.forEach(f=>{if(conNov(f.id))res[f.asesor]=(res[f.asesor]||0)+1});
   $("#ases").innerHTML=ER.asesores.map(a=>{const k=res[a.asesor]||0;return`<tr><td>${esc(a.asesor)}</td><td title="${a.encuestados} encuestados + ${a.heredados} heredados por cadena + ${k} con novedad">${a.con_cadenas+k}</td><td>${a.faltantes-k}</td><td>${a.a_cargo}</td></tr>`}).join("");
   const R=ER.resumen,nv=Object.values(res).reduce((x,y)=>x+y,0),cub=R.puntos-R.faltantes+nv;
-  $("#ekpi").innerHTML=K("Puntos a cargo",nf(R.puntos))+K("Encuestados",nf(R.encuestados+nv))+K("Heredados por cadena",nf(R.heredados))+K("Con novedad",nf(nv))+K("Faltantes",nf(R.faltantes-nv))+K("Avance",(Math.round(cub/R.puntos*1000)/10).toLocaleString("es-CO")+" %");
+  $("#ekpi").innerHTML=K("Puntos a cargo",nf(R.puntos))+K("Encuestados",nf(R.encuestados+nv))+K("Heredados por cadena",nf(R.heredados))+K("Con novedad",nf(nv))+(ER.resumen.vinculados.length?K("Vinculados a mano",nf(ER.resumen.vinculados.length)):"")+K("Faltantes",nf(R.faltantes-nv))+K("Avance",(Math.round(cub/R.puntos*1000)/10).toLocaleString("es-CO")+" %");
   $("#einfo").innerHTML=`${esc(R.encuesta)} · ${R.periodo==="Mensual"?"Mes "+R.mes:"Histórico completo"}${R.fuera_maestro?` · ${R.fuera_maestro} PdV que no están en la hoja PDVS se sumaron al asesor que los encuestó`:""}<span class="noprint"> · Escribe una novedad en un faltante para pasarlo a encuestados.</span>`;
   const conN=ER.faltantes.filter(f=>conNov(f.id));
-  $("#novtb").innerHTML=conN.map(r=>`<tr><td>${esc(r.pdv)}</td><td>${esc(r.asesor)}</td><td>${esc(r.dir)}${r.ciudad?", "+esc(r.ciudad):""}</td><td>${esc(nov[r.id])}</td></tr>`).join("")||'<tr><td colspan="4">No se registraron novedades.</td></tr>';if($("#res").classList.contains("show")){tablas($("#res"));marcar()}}
+  $("#novtb").innerHTML=conN.map(r=>`<tr><td>${esc(r.pdv)}</td><td>${esc(r.asesor)}</td><td>${esc(r.dir)}${r.ciudad?", "+esc(r.ciudad):""}</td><td>${esc(nov[r.id])}</td></tr>`).join("")||'<tr><td colspan="4">No se registraron novedades.</td></tr>';
+  const VL=ER.resumen.vinculados;$("#vincard").hidden=!VL.length;$("#vintb").innerHTML=VL.map(v=>`<tr><td>${esc(v.pdv)}</td><td>${esc(v.asesor)}</td><td>${esc(v.enc_nombre)}</td><td class="noprint"><button type="button" class="vdel" data-f="${v.id}">Quitar</button></td></tr>`).join("");if($("#res").classList.contains("show")){tablas($("#res"));marcar()}}
 function fill(){$("#sa").innerHTML='<option value="">Todos</option>'+[...new Set(ER.faltantes.map(f=>f.asesor))].map(x=>`<option>${esc(x)}</option>`).join("")}
-function tab(){const f=$("#sa").value;$("#tb").innerHTML=ER.faltantes.filter(r=>!f||r.asesor===f).map(r=>`<tr${conNov(r.id)?' class="hecho"':""}><td>${esc(r.pdv)}</td><td>${esc(r.asesor)}</td><td>${esc(r.dir)}${r.ciudad?", "+esc(r.ciudad):""}</td><td><input class="nv" data-k="${r.id}" placeholder="Novedad" value="${esc(nov[r.id]||"")}"></td></tr>`).join("")||'<tr><td colspan="4">Sin faltantes con este filtro.</td></tr>';
+function tab(){const f=$("#sa").value;$("#tb").innerHTML=ER.faltantes.filter(r=>!f||r.asesor===f).map(r=>`<tr${conNov(r.id)?' class="hecho"':""}><td>${esc(r.pdv)}</td><td>${esc(r.asesor)}</td><td>${esc(r.dir)}${r.ciudad?", "+esc(r.ciudad):""}</td><td><div class="nvw"><input class="nv" data-k="${r.id}" placeholder="Novedad" value="${esc(nov[r.id]||"")}"><button type="button" class="vin" data-f="${r.id}" title="Tomar la encuesta de un punto que coincide">Vincular</button></div></td></tr>`).join("")||'<tr><td colspan="4">Sin faltantes con este filtro.</td></tr>';
   document.querySelectorAll(".nv").forEach(i=>i.oninput=()=>{nov[i.dataset.k]=i.value;if(!i.value.trim())delete nov[i.dataset.k];savNov();i.closest("tr").classList.toggle("hecho",!!conNov(i.dataset.k));ases()});if($("#res").classList.contains("show")){tablas($("#res"));marcar()}}
 $("#sa").onchange=tab;
 function charts(){const P=ER.preguntas,cat=P.filter(q=>q.tipo==="categorica"),num=P.filter(q=>q.tipo==="numerica"),S=ER.semanas;let h="";
@@ -421,12 +436,28 @@ function charts(){const P=ER.preguntas,cat=P.filter(q=>q.tipo==="categorica"),nu
   if(num.length)h+=`<div class="chart wide"><h3>Respuestas numéricas (precios)</h3><div class="tw"><table><thead><tr><th>Pregunta</th><th>n</th><th>Media</th><th>IC 95 %</th><th>Mediana</th><th>Mín – Máx</th><th>CV</th></tr></thead><tbody>${num.map(q=>`<tr><td>${esc(q.pregunta)}</td><td>${q.n}${q.atipicos?` <small title="valores atípicos excluidos">(−${q.atipicos})</small>`:""}</td><td>${nf(q.media)}</td><td>${nf(q.ic95[0])} a ${nf(q.ic95[1])}</td><td>${nf(q.mediana)}</td><td>${nf(q.min)} – ${nf(q.max)}</td><td>${q.cv??"–"} %</td></tr>`).join("")}</tbody></table></div><p class="note" style="margin-top:8px">Se excluyen atípicos (fuera de Q1 − 3·RIC y Q3 + 3·RIC). CV = dispersión de precios entre puntos.</p></div>`;
   $("#ch").innerHTML=h||'<p class="note">La encuesta no tiene preguntas graficables.</p>';tips($("#ch"))}
 async function analizar(){const per=document.querySelector('[name=per]:checked').value,fd=new FormData();
-  fd.append("cadenas",files[0]);fd.append("rutero",files[1]);fd.append("encuesta",files[2]);fd.append("periodo",per);if(per==="Mensual"&&$("#mes").value)fd.append("mes",$("#mes").value);if($("#easel").value)fd.append("asesor",$("#easel").value);
+  fd.append("cadenas",files[0]);fd.append("rutero",files[1]);fd.append("encuesta",files[2]);fd.append("periodo",per);if(per==="Mensual"&&$("#mes").value)fd.append("mes",$("#mes").value);if($("#easel").value)fd.append("asesor",$("#easel").value);if(Object.keys(nvin).length)fd.append("vinculos",JSON.stringify(nvin));
   const b=$("#an");b.disabled=true;$("#hint").textContent="Procesando…";
   try{ER=await api("/api/encuestas",fd);const R=ER.resumen;
     $("#mes").innerHTML=R.meses.map(m=>`<option${m===R.mes?" selected":""}>${m}</option>`).join("");$("#mesw").hidden=per!=="Mensual";const sa=R.asesor||"";$("#easel").innerHTML='<option value="">Todos los asesores</option>'+ER.lista_asesores.map(a=>`<option${a===sa?" selected":""}>${esc(a)}</option>`).join("");$("#eban").hidden=!sa;$("#eban").innerHTML=sa?`Análisis de <b>${esc(sa)}</b>`:"";$("#res").dataset.asesor=sa;
     fill();ases();tab();charts();$("#hint").textContent="Listo.";$("#res").classList.add("show");interactivo($("#res"));$("#res").scrollIntoView({behavior:"smooth"})}
   catch(e){$("#hint").textContent=e.message}finally{b.disabled=false}}
+// ===== VINCULAR: buscador manual de encuestas para un faltante =====
+function buscarEnc(q,f){const ws=kk(q).split(" ").filter(Boolean),usados=new Set(Object.values(nvin).map(String));
+  return ER.encuestas_lista.filter(e=>!usados.has(String(e[0]))&&ws.every(w=>kk(e[1]+" "+e[2]+" "+e[3]).includes(w)))
+    .map(e=>({e,s:(ciudad(e[2])===ciudad(f.ciudad)?2:0)+(e[3]===f.asesor?1:0)+(e[5]?0:1)})).sort((a,b)=>b.s-a.s||a.e[1].localeCompare(b.e[1],"es")).slice(0,12).map(x=>x.e)}
+const ciudad=s=>kk(s).replace(/[^A-Z]/g,"");
+function abrirVin(btn){document.querySelectorAll("tr.vrow").forEach(x=>x.remove());const tr=btn.closest("tr"),fid=btn.dataset.f,f=ER.faltantes.find(x=>String(x.id)===fid);if(!f)return;
+  const pal=kk(f.pdv).split(" ").find(w=>w.length>3&&!["SEDE","SHOP","PETS","AGRO","CLINICA","VETERINARIA","TIENDA"].includes(w))||"";
+  const row=document.createElement("tr");row.className="vrow noprint";row.innerHTML=`<td colspan="4"><div class="vbox"><div class="vhead"><b>Vincular “${esc(f.pdv)}”</b> <span class="note" style="margin:0">${esc(f.ciudad)} · ${esc(f.asesor)}</span><button type="button" class="vclose" aria-label="Cerrar">✕</button></div>
+    <input type="search" class="vq" placeholder="Busca la encuesta por nombre, ciudad o asesor" value="${esc(pal)}"><ul class="vres"></ul><p class="note" style="margin:6px 0 0">Primero salen las de la misma ciudad y el mismo asesor. “Sin maestro” = encuesta de un punto que no está en la hoja PDVS.</p></div></td>`;
+  tr.after(row);const q=row.querySelector(".vq"),ul=row.querySelector(".vres");
+  const pintar=()=>{const R=buscarEnc(q.value,f);ul.innerHTML=R.map(e=>`<li><button type="button" data-e="${e[0]}"><b>${esc(e[1])}</b><span>${esc(e[2])} · ${esc(e[3]||"—")} · ${esc(e[4])}${e[5]?"":' · <i>sin maestro</i>'}</span></button></li>`).join("")||'<li class="note">Sin coincidencias. Prueba con otra palabra.</li>'};
+  q.oninput=pintar;pintar();q.focus();row.querySelector(".vclose").onclick=()=>row.remove();
+  ul.onclick=e=>{const b=e.target.closest("button[data-e]");if(!b)return;const en=ER.encuestas_lista.find(x=>String(x[0])===b.dataset.e);
+    if(ciudad(en[2])!==ciudad(f.ciudad)&&!confirm(`“${en[1]}” es de ${en[2]} y el faltante es de ${f.ciudad}. ¿Vincular de todos modos?`))return;
+    nvin[fid]=en[0];savVin();row.remove();analizar()}}
+document.addEventListener("click",e=>{const b=e.target.closest(".vin");if(b){abrirVin(b);return}const d=e.target.closest(".vdel");if(d){delete nvin[d.dataset.f];savVin();analizar()}});
 $("#an").onclick=analizar;$("#mes").onchange=analizar;$("#easel").onchange=analizar;
 $("#epdf").onclick=()=>imprimir("Encuestas NexGard "+(ER?(ER.resumen.mes||"historico"):""));
 

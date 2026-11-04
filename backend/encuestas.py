@@ -57,8 +57,9 @@ def _buscador_cadenas(cadenas: pd.DataFrame):
 
 
 def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, periodo: str, mes: str | None,
-             asesor: str | None = None):
-    """`asesor`: si se indica, todo el resultado (puntos, faltantes, respuestas) es solo de ese asesor."""
+             asesor: str | None = None, vinculos: dict | None = None):
+    """`asesor`: si se indica, todo el resultado (puntos, faltantes, respuestas) es solo de ese asesor.
+    `vinculos`: {id_pdv_faltante: id_pdv_encuestado} hechos a mano: el faltante toma esa encuesta."""
     exigir(enc, ["ID_SUCURSAL", "NOMBRE", "FECHA_VISITA", "PREGUNTA", "RESPUESTA"], "encuesta")
     maestro = _maestro_pdv(rutero)
     cadena = _buscador_cadenas(cadenas)
@@ -73,8 +74,43 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
         enc = enc[enc["_mes"] == mes]
     else:
         mes = None
+    enc = enc.copy()
+
+    # Encuestas del periodo, para el buscador manual (antes de aplicar vínculos)
+    v0 = enc.dropna(subset=["_id"]).drop_duplicates("_id")
+    en_m = set(maestro["id"])
+    quien0 = (nombres(maestro, v0, "ID_USUARIO", "ID_SUCURSAL", "ASESOR")
+              if {"ID_USUARIO", "ASESOR"} <= set(v0.columns) else pd.Series("", index=v0.index))
+    lista_enc = [[int(i), limpio(nm), limpio(cd), a or "", f.strftime("%d/%m/%Y") if pd.notna(f) else "", int(i) in en_m]
+                 for i, nm, cd, a, f in zip(v0["_id"], v0["NOMBRE"], v0["CIUDAD"] if "CIUDAD" in v0 else [""] * len(v0),
+                                            quien0, v0["_f"])]
+
+    # Vínculos manuales: el faltante toma la encuesta elegida.
+    # · Si la encuesta es de un punto que no está en PDVS, pasa a ser del faltante (deja de contarse "fuera del maestro").
+    # · Si es de otro punto del maestro, ese punto la conserva y el faltante solo queda como encuestado.
+    vinc, copias = [], []
+    ids_enc = set(v0["_id"].astype("int64"))
+    fichas = maestro.set_index("id")
+    for fid, eid in (vinculos or {}).items():
+        try:
+            fid, eid = int(fid), int(eid)
+        except (TypeError, ValueError):
+            continue
+        if eid not in ids_enc or fid not in en_m or fid in ids_enc:
+            continue
+        filas = enc[enc["_id"] == eid]
+        if eid in en_m:
+            copias.append(filas.drop_duplicates("_id").assign(_id=float(fid)))
+        else:
+            enc.loc[filas.index, "_id"] = float(fid)
+            ids_enc.discard(eid)
+        ids_enc.add(fid)
+        vinc.append({"id": fid, "pdv": fichas.at[fid, "pdv"], "asesor": fichas.at[fid, "asesor"],
+                     "enc_id": eid, "enc_nombre": limpio(filas["NOMBRE"].iloc[0])})
 
     visitas = enc.dropna(subset=["_id"]).drop_duplicates("_id")
+    if copias:
+        visitas = pd.concat([visitas, *copias])
     encuestados = set(visitas["_id"].astype("int64"))
     # Herencia por cadena: un punto sin encuesta de una cadena hereda si otro punto de esa misma cadena
     # fue encuestado y es (a) del mismo asesor, en cualquier ciudad, o (b) de la misma ciudad, de cualquier asesor.
@@ -150,9 +186,11 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
         "fuera_maestro": int(len(fuera)),
         "fuera_maestro_lista": [limpio(x) for x in fuera["NOMBRE"].head(50)],
         "asesor": asesor,
+        "vinculados": [v for v in vinc if not asesor or v["asesor"] == asesor],
     }
     return {"resumen": resumen, "asesores": asesores, "faltantes": faltantes,
-            "preguntas": _preguntas(enc), "semanas": _semanas(visitas), "lista_asesores": lista}
+            "preguntas": _preguntas(enc), "semanas": _semanas(visitas), "lista_asesores": lista,
+            "encuestas_lista": lista_enc}
 
 
 def _preguntas(enc: pd.DataFrame):
