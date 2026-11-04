@@ -249,6 +249,23 @@ td.ajustado .pct s{background:var(--ac)!important}
 }
 
 
+/* Zoom de cobertura */
+tr.tot td{font-weight:600;border-top:2px solid var(--bd);background:var(--sf2)}
+.cobz{cursor:pointer;border-radius:var(--r-sm)}.cobz:hover{box-shadow:0 0 0 2px var(--g)}.cobz:focus-visible{outline:2px solid var(--g)}
+.cobz::after{content:"Ver motivos ›";display:block;font-size:.75rem;color:var(--g);margin-top:2px}
+#cobdlg{border:0;border-radius:var(--r-lg);background:var(--sf);color:var(--ink);padding:24px;width:min(640px,calc(100vw - 32px));max-height:85vh;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#cobdlg::backdrop{background:rgba(0,0,0,.35)}
+#cobdlg .dh{display:flex;align-items:flex-start;gap:12px}#cobdlg h2{margin:0}#cobdlg .vclose{margin-left:auto}
+.cobsplit{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--sf2);margin:16px 0 8px}
+.cobsplit i{background:var(--ok)}.cobsplit s{background:var(--bad)}
+.cobleg{display:flex;gap:18px;flex-wrap:wrap;font-size:.875rem}.cobleg b{font-size:1.125rem}
+.cobtab{display:flex;gap:6px;margin:18px 0 10px}.cobtab button{border:1px solid var(--bd);background:var(--sf2);color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer;font-size:.875rem}
+.cobtab button[aria-pressed="true"]{background:var(--g);color:var(--gt);border-color:var(--g)}
+.cobl{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cobl li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:.875rem}.cobl li span{color:var(--mut);text-align:right}
+.cobl li i{grid-column:1/-1;height:6px;border-radius:99px;background:var(--sf2);overflow:hidden}.cobl li i s{display:block;height:100%;background:var(--bad)}
+.cobl.ef li i s{background:var(--ok)}
+
 /* Vincular encuestas */
 .nvw{display:flex;gap:6px;align-items:center}
 .vin,.vdel{border:1px solid var(--bd);background:var(--sf);color:var(--g);border-radius:99px;padding:5px 12px;font-size:.8125rem;cursor:pointer;white-space:nowrap}
@@ -345,7 +362,7 @@ h2.sec[aria-expanded="false"]::after{rotate:-45deg;translate:0 0}
     <p class="note ponly pfecha"></p><div class="asel noprint"><label class="flt" for="easel">Ver análisis de <select id="easel"><option value="">Todos los asesores</option></select></label></div><p class="asesor-ban" id="eban" hidden></p><p class="note" id="einfo"></p><div class="kg" id="ekpi"></div>
     <div class="cols">
       <div class="card"><h2>Asesores</h2>
-        <div class="tw"><table><thead><tr><th>Asesor</th><th>Encuestados con cadenas</th><th>Puntos faltantes</th><th>Puntos a cargo</th></tr></thead><tbody id="ases"></tbody></table></div></div>
+        <div class="tw"><table><thead><tr><th>Asesor</th><th>Encuestados con cadenas</th><th>Puntos faltantes</th><th>Puntos a cargo</th></tr></thead><tbody id="ases"></tbody><tfoot id="asetot"></tfoot></table></div></div>
       <div class="card noprint" id="fcard"><h2>Faltantes</h2>
         <div class="filters">
           <label class="flt">Asesor <select id="sa"></select></label>
@@ -420,6 +437,8 @@ function tips(el){const tip=$("#tip"),show=e=>{const t=e.target.closest("[data-t
 const conNov=id=>(nov[id]||"").trim();
 function ases(){const res={};ER.faltantes.forEach(f=>{if(conNov(f.id))res[f.asesor]=(res[f.asesor]||0)+1});
   $("#ases").innerHTML=ER.asesores.map(a=>{const k=res[a.asesor]||0;return`<tr><td>${esc(a.asesor)}</td><td title="${a.encuestados} encuestados + ${a.heredados} heredados por cadena + ${k} con novedad">${a.con_cadenas+k}</td><td>${a.faltantes-k}</td><td>${a.a_cargo}</td></tr>`}).join("");
+  const tc=ER.asesores.reduce((s,a)=>{const k=res[a.asesor]||0;s[0]+=a.con_cadenas+k;s[1]+=a.faltantes-k;s[2]+=a.a_cargo;return s},[0,0,0]);
+  $("#asetot").innerHTML=ER.asesores.length>1?`<tr class="tot"><td>Total</td><td>${nf(tc[0])}</td><td>${nf(tc[1])}</td><td>${nf(tc[2])}</td></tr>`:"";
   const R=ER.resumen,nv=Object.values(res).reduce((x,y)=>x+y,0),cub=R.puntos-R.faltantes+nv;
   $("#ekpi").innerHTML=K("Puntos a cargo",nf(R.puntos))+K("Encuestados",nf(R.encuestados+nv))+K("Heredados por cadena",nf(R.heredados))+K("Con novedad",nf(nv))+(ER.resumen.vinculados.length?K("Vinculados a mano",nf(ER.resumen.vinculados.length)):"")+K("Faltantes",nf(R.faltantes-nv))+K("Avance",(Math.round(cub/R.puntos*1000)/10).toLocaleString("es-CO")+" %");
   $("#einfo").innerHTML=`${esc(R.encuesta)} · ${R.periodo==="Mensual"?"Mes "+R.mes:"Histórico completo"}${R.fuera_maestro?` · ${R.fuera_maestro} PdV que no están en la hoja PDVS se sumaron al asesor que los encuestó`:""}<span class="noprint"> · Escribe una novedad en un faltante para pasarlo a encuestados.</span>`;
@@ -670,11 +689,11 @@ function cupd(){let tot=0,nAj=0;const M=cmon(),max=M.reduce((x,y)=>x+y,0);
   const n=CD.asesores.length;$("#ckpi").innerHTML=K("Asesores",n)+K("Total a pagar",pesos(tot))+K("Máximo posible",pesos(max*n))+K("Promedio por asesor",pesos(n?tot/n:0))+K("Cumplimiento global",pc(max*n?tot/(max*n)*100:null))+(nAj?K("Calificaciones ajustadas",nAj):"");
   $("#cajn").hidden=!nAj}
 function celda(a,k,det){const v=(adj[a.asesor]||{})[k];
-  return`<td data-c="${k}"><div class="det">${det}</div><div class="bw"></div><div class="ajw noprint"><input class="adj" data-a="${esc(a.asesor)}" data-k="${k}" type="number" min="0" max="200" step="0.1" value="${v??""}" aria-label="Ajustar ${ITN[k]} de ${esc(a.asesor)}"><button class="rst" type="button" data-a="${esc(a.asesor)}" data-k="${k}" title="Quitar ajuste" aria-label="Quitar ajuste">↺</button></div><div class="ajn"></div></td>`}
+  return`<td data-c="${k}"><div class="det">${det}</div><div class="bw${k===1?" cobz":""}"${k===1?` role="button" tabindex="0" data-cob="${esc(a.asesor)}" title="Ver motivos de visitas efectivas y no efectivas"`:""}></div><div class="ajw noprint"><input class="adj" data-a="${esc(a.asesor)}" data-k="${k}" type="number" min="0" max="200" step="0.1" value="${v??""}" aria-label="Ajustar ${ITN[k]} de ${esc(a.asesor)}"><button class="rst" type="button" data-a="${esc(a.asesor)}" data-k="${k}" title="Quitar ajuste" aria-label="Quitar ajuste">↺</button></div><div class="ajn"></div></td>`}
 function crender(){const A=CD.asesores;
   $("#cres").innerHTML=`${CD.alertas.length?`<div class="card alerta" style="margin-top:20px">${CD.alertas.map(x=>`<p class="note">${esc(x)}</p>`).join("")}</div>`:""}
   <p class="note ponly pfecha"></p><p class="ponly" id="cparam"></p><div class="cm-kpis" id="ckpi"></div>
-  <div class="card"><div class="cm-bar"><h2>Comisión por asesor</h2><div class="cm-btns noprint"><button class="btn alt" id="cedit" style="padding:10px 20px" aria-pressed="false">Ajustar calificaciones</button><button class="btn alt" id="ccopy" style="padding:10px 20px">Copiar tabla para Excel</button><button class="btn alt" id="cpdf" style="padding:10px 20px">Descargar PDF</button></div></div>
+  <div class="card"><div class="cm-bar"><h2>Comisión por asesor</h2><div class="cm-btns noprint"><button class="btn alt" id="cedit" style="padding:10px 20px" aria-pressed="false">Ajustar calificaciones</button><button class="btn alt" id="ccob" style="padding:10px 20px">Motivos de cobertura</button><button class="btn alt" id="ccopy" style="padding:10px 20px">Copiar tabla para Excel</button><button class="btn alt" id="cpdf" style="padding:10px 20px">Descargar PDF</button></div></div>
   <div class="ajbar noprint" id="cajbar" hidden><p class="note" style="margin:0">Escribe el % que quieres otorgar en Sell Out, Cobertura o SGI. Vacío = usa el valor calculado (se muestra en gris). ↺ quita el ajuste.</p><button class="btn alt" id="cclr" style="padding:8px 16px">Quitar todos los ajustes</button></div>
   <div class="tw"><table id="ctab"><thead><tr><th>Asesor</th><th>Sell Out<br><small>unidades / meta</small></th><th>Cobertura<br><small>efectivas / programadas</small></th><th>Activaciones<br><small>calificación %</small></th><th>SGI<br><small>jornadas completas / días</small></th><th>$ Sell Out</th><th>$ Cobertura</th><th>$ Activaciones</th><th>$ SGI</th><th>Total</th></tr></thead>
   <tbody>${A.map((a,i)=>`<tr id="cr${i}"><td>${esc(a.asesor)}</td>${celda(a,0,"")}${celda(a,1,`${a.efectivas} / ${nf(a.programadas)}`)}
@@ -691,11 +710,30 @@ function crender(){const A=CD.asesores;
   $("#ccopy").onclick=async()=>{const b=$("#ccopy"),t=["Asesor\tUnidades\t% Sell Out\t% Cobertura\t% Activaciones\t% SGI\tSell Out\tCobertura\tActivaciones\tSGI\tTotal\tAjustes manuales",...A.map(a=>{const F=cfila(a),f=v=>v==null||!isFinite(v)?"":String(Math.round(v*10)/10).replace(".",",");return[a.asesor,a.unidades,...F.c.map(f),...F.p.map(v=>Math.round(v)),Math.round(F.t),[0,1,3].filter(k=>F.aj[k]).map(k=>`${ITN[k]} (calculado ${f(F.calc[k])})`).join("; ")].join("\t")})].join("\n");
     try{await navigator.clipboard.writeText(t);b.textContent="Copiada"}catch(e){b.textContent="No se pudo copiar"}setTimeout(()=>b.textContent="Copiar tabla para Excel",2500)};
   $("#cpdf").onclick=()=>imprimir("Comisiones NexGard");
+  $("#ccob").onclick=()=>cobZoom(null);
+  $("#cres").querySelectorAll(".cobz").forEach(z=>{z.onclick=()=>cobZoom(z.dataset.cob);z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();cobZoom(z.dataset.cob)}}});
   cupd();$("#cres").classList.add("show");interactivo($("#cres"));$("#cres").scrollIntoView({behavior:"smooth"})}
+// ===== ZOOM DE COBERTURA: motivos (ESTADO) de visitas efectivas y no efectivas =====
+function cobZoom(nombre){const A=nombre==null?CD.asesores:CD.asesores.filter(a=>a.asesor===nombre);if(!A.length)return;
+  const junta=k=>{const m={};A.forEach(a=>(a.motivos[k]||[]).forEach(([e,n])=>m[e]=(m[e]||0)+n));return Object.entries(m).sort((x,y)=>y[1]-x[1])};
+  const EF=junta("efectiva"),NE=junta("no_efectiva"),ne=EF.reduce((s,x)=>s+x[1],0),nn=NE.reduce((s,x)=>s+x[1],0),tot=ne+nn;
+  const prog=A.reduce((s,a)=>s+(a.programadas||0),0),pct=v=>tot?v/tot*100:0;
+  const lista=(L,n,cls)=>L.length?`<ul class="cobl ${cls}">${L.map(([e,v])=>`<li><b>${esc(e)}</b><span>${nf(v)} · ${pc1(n?v/n*100:0)}</span><i><s style="width:${n?v/n*100:0}%"></s></i></li>`).join("")}</ul>`:'<p class="note">Sin visitas en este grupo.</p>';
+  const d=$("#cobdlg");let modo=nn?"ne":"ef";
+  const pintar=()=>{d.innerHTML=`<div class="dh"><div><h2 id="cobtit">Motivos de cobertura</h2><p class="note" style="margin:4px 0 0">${nombre==null?`Todos los asesores (${A.length})`:esc(nombre)} · ${nf(tot)} visitas registradas · ${nf(prog)} programadas</p></div><button type="button" class="vclose" aria-label="Cerrar">✕</button></div>
+    <div class="cobsplit" role="img" aria-label="${pc1(pct(ne))} efectivas, ${pc1(pct(nn))} no efectivas"><i style="width:${pct(ne)}%"></i><s style="width:${pct(nn)}%"></s></div>
+    <div class="cobleg"><div><span class="note" style="margin:0">Efectivas</span><br><b style="color:var(--ok)">${nf(ne)}</b> · ${pc1(pct(ne))}</div><div><span class="note" style="margin:0">No efectivas</span><br><b style="color:var(--bad)">${nf(nn)}</b> · ${pc1(pct(nn))}</div><div><span class="note" style="margin:0">Cobertura (efectivas ÷ programadas)</span><br><b>${prog?pc1(ne/prog*100):"–"}</b></div></div>
+    <div class="cobtab" role="group" aria-label="Grupo"><button type="button" data-m="ne" aria-pressed="${modo==="ne"}">No efectivas · ${nf(nn)}</button><button type="button" data-m="ef" aria-pressed="${modo==="ef"}">Efectivas · ${nf(ne)}</button></div>
+    ${modo==="ne"?lista(NE,nn,""):lista(EF,ne,"ef")}
+    <p class="note" style="margin-top:14px">Motivo = columna ESTADO de EFECTIVIDAD_VISITAS. El % de cada motivo es sobre las visitas del grupo elegido.</p>`;
+    d.querySelector(".vclose").onclick=()=>d.close();d.querySelectorAll(".cobtab button").forEach(b=>b.onclick=()=>{modo=b.dataset.m;pintar()})};
+  pintar();d.showModal()}
+document.addEventListener("click",e=>{if(e.target.id==="cobdlg")e.target.close()});
 $("#ccal").onclick=async()=>{const fd=new FormData();ck.forEach((k,i)=>fd.append(k,cf[i]));const b=$("#ccal");b.disabled=true;$("#chint").textContent="Procesando…";
   try{CD=await api("/api/comisiones",fd);$("#chint").textContent="Listo. Escribe la calificación de activaciones de cada asesor.";crender()}catch(e){$("#chint").textContent=e.message}finally{b.disabled=false}};
 
 </script>
+<dialog id="cobdlg" aria-labelledby="cobtit"></dialog>
 <button type="button" id="vgen" class="vgen noprint" hidden onclick="vistaGeneral()" title="Quitar orden, filtros, resaltado y zoom (Esc)">↺ Vista general</button>
 <div id="tip" role="status"></div></body>
 </html>

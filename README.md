@@ -54,6 +54,8 @@ Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archiv
 
 Pago de cada componente = monto × cumplimiento, con tope del 100 %.
 
+Al hacer clic en el % de Cobertura de un asesor (o en "Motivos de cobertura" para todos) se abre el desglose de visitas efectivas y no efectivas por motivo (columna `ESTADO` de EFECTIVIDAD_VISITAS).
+
 ## Estructura
 
 ```

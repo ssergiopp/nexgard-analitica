@@ -36,6 +36,15 @@ def analizar(ventas: pd.DataFrame, cobertura: pd.DataFrame, rutero: pd.DataFrame
     c = cobertura.assign(_a=nombres(maestro, cobertura, "ID_ASESOR", "ID_PV", "ASESOR"),
                          _ef=cobertura["EFECTIVIDAD"].map(norm_txt) == "EFECTIVA")
     efectivas = c.groupby("_a")["_ef"].sum()
+    # Desglose del motivo (columna ESTADO) de las visitas efectivas y no efectivas, por asesor
+    est = c["ESTADO"].map(limpio).replace("", "SIN ESTADO") if "ESTADO" in c else pd.Series("SIN ESTADO", index=c.index)
+    desg = c.assign(_e=est).groupby(["_a", "_ef", "_e"]).size()
+    motivos = {}
+    for (a, ef, e), n in desg.items():
+        motivos.setdefault(a, {"efectiva": [], "no_efectiva": []})["efectiva" if ef else "no_efectiva"].append([e, int(n)])
+    for d in motivos.values():
+        for k in d:
+            d[k].sort(key=lambda x: -x[1])
 
     m = momentos.assign(_a=nombres(maestro, momentos, "ASESOR_ID", "PUNTO_VENTA_ID", "NOMBRE_ASESOR"),
                         _d=fecha(momentos["FECHA_INICIO"]), _act=momentos["NOMBRE_ACTIVIDAD"].map(norm_txt))
@@ -53,6 +62,7 @@ def analizar(ventas: pd.DataFrame, cobertura: pd.DataFrame, rutero: pd.DataFrame
             "efectivas": int(e), "programadas": r(p, 0), "pct_cobertura": r(e / p * 100) if p else None,
             "dias": int(d), "jornadas_completas": int(k), "pct_sgi": r(k / d * 100) if d else None,
             "en_maestro": bool(a in prog.index),
+            "motivos": motivos.get(a, {"efectiva": [], "no_efectiva": []}),
         })
     fv = fecha(ventas["FECHA_CAPTURA"]) if "FECHA_CAPTURA" in ventas else pd.Series(dtype="datetime64[ns]")
     periodo = (f"{fv.min():%d/%m/%Y} a {fv.max():%d/%m/%Y}" if fv.notna().any() else "")
