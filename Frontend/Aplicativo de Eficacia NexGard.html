@@ -484,16 +484,16 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
   const SEC=t=>`<h2 class="sec${sec++?"":" first"}">${t}</h2>`;
   if(S){Y=S.y;n=S.n;d0=Date.parse(S.inicio);FM=null;if(S.ajuste){const F=S.ajuste;FM={...F,p:i=>F.a+F.b*i+F.dm[dw(i)]}}}
   if(D.avisos.length)h+=`<p class="note">${D.avisos.map(esc).join(" ")}</p>`;
-  if(Cb){h+=SEC("Cobertura")+`<div class="kg">${K("Cobertura (visitas efectivas)",P(Cb.kpi.cobertura))}${K("Visitas",nf(Cb.kpi.visitas))}${K("PdV visitados",nf(Cb.kpi.pdv_visitados))}${K("Minutos por visita (mediana)",nf(Cb.kpi.min_visita))}</div>`+
-    g2(G("PdV visitados por asesor",Cb.pdv_por_asesor,v=>nf(v)+" PdV"),G("% de cobertura por asesor",Cb.cobertura_asesor,P))+
-    g2(G("% de cobertura por regional",Cb.cobertura_regional,P),Cb.novedades.length?C("Novedades de visitas no efectivas",hb(Cb.novedades.slice(0,8).map(x=>[x[0],x[2]]),P)+`<p class="note" style="margin-top:6px">Porcentaje sobre el total de visitas.</p>`):"")}
+  if(Cb){h+=SEC("Cobertura")+`<div class="kg">${K("Cobertura (visitas efectivas)",P(Cb.kpi.cobertura))}${K("Visitas",nf(Cb.kpi.visitas))}${K("Minutos por visita (mediana)",nf(Cb.kpi.min_visita))}</div>`+
+    g2(G("% de cobertura por asesor",Cb.cobertura_asesor,P),G("% de cobertura por regional",Cb.cobertura_regional,P))+
+    (Cb.novedades.length?C("Novedades de visitas no efectivas",hb(Cb.novedades.slice(0,8).map(x=>[x[0],x[2]]),P)+`<p class="note" style="margin-top:6px">Porcentaje sobre el total de visitas.</p>`):"")}
   if(V){h+=SEC("Venta")+(V.alertas.length?`<div class="card alerta"><h2>Alertas en la base de ventas</h2>${V.alertas.map(a=>`<p class="note">${esc(a)}</p>`).join("")}</div>`:"")+
-    `<div class="kg">${K("Venta total",M(V.kpi.total/1e6))}${K("Unidades",nf(V.kpi.unidades))}${K("Pedidos",nf(V.kpi.pedidos))}${K("Ticket promedio","$ "+nf(V.kpi.ticket))}${K("PdV con pedido",nf(V.kpi.pdv))}${K("Fin de semana (vie–dom)",P(V.kpi.pct_fds))}</div>`+
+    `<div class="kg">${K("Venta total",M(V.kpi.total/1e6))}${K("Unidades",nf(V.kpi.unidades))}${K("Ticket promedio","$ "+nf(V.kpi.ticket))}${K("PdV con pedido",nf(V.kpi.pdv))}${K("Fin de semana (vie–dom)",P(V.kpi.pct_fds))}</div>`+
     (S?C(`Venta por día · ${V.kpi.desde} a ${V.kpi.hasta}`,'<div id="t1"></div>'):"")+
     g2(G("Venta por SKU (millones)",V.sku_valor,M),G("Unidades por SKU",V.sku_unidades,v=>nf(v)+" uds"))+
     g2(G("Venta por familia (millones)",V.familia,M),G("Venta por regional (millones)",V.regional,M))+
     (V.estado.length>1?g2(G("Venta por estado del pedido (millones)",V.estado,M)):"")+
-    C("Ranking de asesores",T(["#","Asesor","Unidades","Venta","Pedidos"],V.asesores.map((r,i)=>[i+1,r[0],nf(r[1]),M(r[2]),r[3]])))}
+    C("Ranking de asesores",T(["#","Asesor","Unidades","Venta"],V.asesores.map((r,i)=>[i+1,r[0],nf(r[1]),M(r[2])])))}
   if(A){h+=SEC("Agotados")+`<div class="kg">${K("Agotado (sobre lo medido)",P(A.kpi.pct_agotado))}${K("Agotado (sobre manejantes)",P(A.kpi.pct_agotado_manejantes))}${K("Presente",P(A.kpi.pct_presente))}${K("No manejante",P(A.kpi.pct_no_manejante))}${K("PdV medidos",nf(A.kpi.pdv))}${A.kpi.pct_causal_generica!=null?K("Causal genérica (“AGOTADO”, “NO APLICA”)",P(A.kpi.pct_causal_generica)):""}</div>`+
     g2(C("Estado por regional",sb(A.regional)),C("Estado por familia",sb(A.familia)))+
     g2(A.semanas.length>1?C("Tendencia semanal de agotados",`<p class="note">% agotado sobre puntos que manejan el SKU, por semana.</p>`+line(A.semanas,P)):"",G("% agotado por SKU",A.sku,P,"Sobre puntos que manejan el SKU."))+
