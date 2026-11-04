@@ -27,7 +27,7 @@ Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archiv
 
 **Encuestas**
 - Puntos a cargo: hoja PDVS (el asesor está en la columna rotulada `LATITUD`). El cruce con la encuesta es por `ID PDV` = `ID_SUCURSAL`.
-- Herencia por cadena: si el nombre del PdV contiene un nombre de `CADENAS.xlsx` y algún punto de esa cadena **en la misma ciudad** fue encuestado en el periodo, el punto queda "Heredado por cadena" y no cuenta como faltante. Las ciudades se comparan sin tildes ni espacios (RIO NEGRO = RIONEGRO, MANIZALEZ = MANIZALES).
+- Herencia por cadena: si el nombre del PdV contiene un nombre de `CADENAS.xlsx` y otro punto de esa cadena fue encuestado en el periodo, el punto queda "Heredado por cadena" (no cuenta como faltante) cuando ese otro punto es **del mismo asesor (en cualquier ciudad)** o **de la misma ciudad (de cualquier asesor)**. Si el punto tiene su propia encuesta, cuenta como encuestado. Las ciudades se comparan sin tildes ni espacios (RIO NEGRO = RIONEGRO, MANIZALEZ = MANIZALES).
 - PdV encuestados que no están en PDVS se suman como puntos encuestados del asesor que hizo la encuesta.
 - Mensual: solo encuestas del mes elegido (por defecto el último mes del archivo). Universal: todo el histórico; las novedades escritas en la tabla de faltantes descuentan el punto (se guardan en el navegador).
 - Precios: se excluyen atípicos fuera de Q1 − 3·RIC y Q3 + 3·RIC (p. ej. un precio de Canilaner digitado con ceros de más).

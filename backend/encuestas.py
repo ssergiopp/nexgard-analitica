@@ -76,12 +76,23 @@ def analizar(cadenas: pd.DataFrame, rutero: pd.DataFrame, enc: pd.DataFrame, per
 
     visitas = enc.dropna(subset=["_id"]).drop_duplicates("_id")
     encuestados = set(visitas["_id"].astype("int64"))
-    # Cadena + ciudad con al menos un punto encuestado. La herencia solo aplica dentro de la misma ciudad.
-    ciud_v = visitas["CIUDAD"] if "CIUDAD" in visitas else pd.Series("", index=visitas.index)
-    cad_ok = {(c, ciudad(k)) for c, k in zip(visitas["NOMBRE"].map(cadena), ciud_v) if c}
-
+    # Herencia por cadena: un punto sin encuesta de una cadena hereda si otro punto de esa misma cadena
+    # fue encuestado y es (a) del mismo asesor, en cualquier ciudad, o (b) de la misma ciudad, de cualquier asesor.
+    # Si el punto tiene su propia encuesta, cuenta como encuestado (su información prevalece).
     maestro["cadena"] = maestro["pdv"].map(cadena)
-    hereda = [c != "" and (c, ciudad(k)) in cad_ok for c, k in zip(maestro["cadena"], maestro["ciudad"])]
+    dueño = maestro.set_index("id")["asesor"]
+    cad_m = maestro.set_index("id")["cadena"]
+    idv = visitas["_id"].astype("int64")
+    cad_v = idv.map(cad_m).where(idv.isin(cad_m.index), visitas["NOMBRE"].map(cadena)).fillna("")
+    ciud_v = (idv.map(maestro.set_index("id")["ciudad"]).where(idv.isin(cad_m.index), visitas.get("CIUDAD"))
+              if "CIUDAD" in visitas else idv.map(maestro.set_index("id")["ciudad"])).fillna("")
+    ases_v = idv.map(dueño)
+    if {"ID_USUARIO", "ASESOR"} <= set(visitas.columns):
+        ases_v = ases_v.fillna(nombres(maestro, visitas, "ID_USUARIO", "ID_SUCURSAL", "ASESOR"))
+    cad_ciudad = {(c, ciudad(k)) for c, k in zip(cad_v, ciud_v) if c}
+    cad_asesor = {(c, a) for c, a in zip(cad_v, ases_v.fillna("")) if c and a}
+    hereda = [c != "" and ((c, ciudad(k)) in cad_ciudad or (c, a) in cad_asesor)
+              for c, k, a in zip(maestro["cadena"], maestro["ciudad"], maestro["asesor"])]
     maestro["estado"] = np.where(
         maestro["id"].isin(encuestados), "Encuestado",
         np.where(hereda, "Heredado por cadena", "Faltante"),
