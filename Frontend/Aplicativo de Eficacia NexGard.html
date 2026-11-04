@@ -169,16 +169,16 @@ svg{width:100%;height:auto;display:block}
 .pct b{font-weight:500;font-size:.875rem;min-width:4.5ch;text-align:right}
 
 /* Gráficos */
-:root{--mut2:#c7c7cc}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--mut2:#636366}}
-:root[data-theme="dark"]{--mut2:#636366}
+:root{--mut2:#c7c7cc;--g2:#69a7ee}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--mut2:#636366;--g2:#64b5ff}}
+:root[data-theme="dark"]{--mut2:#636366;--g2:#64b5ff}
 .trk{fill:color-mix(in srgb,var(--ink) 6%,transparent)}
 .lab{fill:var(--ink)}
 .gl{stroke:var(--bd);stroke-width:1}
 .area{fill:var(--g);opacity:.1}
-.band{fill:var(--ac);opacity:.18}
-.dot{fill:var(--g);stroke:var(--sf);stroke-width:1.5}.dot.fds{fill:var(--ac)}.dot.fc{fill:var(--ac)}
-.ln.fc{stroke:var(--ac);stroke-dasharray:5 4}
+.band{fill:var(--g2);opacity:.22}
+.dot{fill:var(--g);stroke:var(--sf);stroke-width:1.5}.dot.fds{fill:var(--ac)}.dot.fc{fill:var(--g2)}
+.ln.fc{stroke:var(--g2);stroke-dasharray:5 4}
 .fit{stroke:var(--mut);stroke-width:2;stroke-dasharray:6 5}
 .pt{fill:var(--g);opacity:.6}
 .col{fill:var(--g)}
@@ -207,12 +207,19 @@ td.ajustado .pct s{background:var(--ac)!important}
 .ajbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--tint);border-radius:var(--r-md);padding:10px 14px;margin-bottom:12px}
 .ca{width:90px}
 .cm-btns{display:flex;gap:8px;flex-wrap:wrap}
+.alertas{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.alertas li{position:relative;padding:2px 0 2px 18px;border-bottom:1px solid var(--bd);padding-bottom:12px}
+.alertas li:last-child{border-bottom:0;padding-bottom:0}
+.alertas li::before{content:"";position:absolute;left:0;top:8px;width:9px;height:9px;border-radius:50%;background:var(--ac)}
+.alertas li.alta::before{background:var(--bad)}
+.alertas b{font-weight:600}.alertas .niv{margin-left:8px;font-size:.75rem;color:var(--mut)}
+.alertas p{margin:4px 0 0;font-size:.9375rem}.alertas .acc{color:var(--mut);font-size:.875rem}
 
 /* PDF (imprimir → Guardar como PDF) */
 @page{size:A4;margin:14mm 12mm}
 @page horizontal{size:A4 landscape;margin:12mm}
 @media print{
-  :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff!important;--sf:#fff!important;--sf2:#f5f5f7!important;--ink:#1d1d1f!important;--mut:#6e6e73!important;--bd:#e3e3e8!important;--g:#0071e3!important;--ac:#ff9f0a!important;--ok:#248a3d!important;--bad:#d70015!important;--mut2:#c7c7cc!important;--tint:#e8f1fc!important;color-scheme:light}
+  :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff!important;--sf:#fff!important;--sf2:#f5f5f7!important;--ink:#1d1d1f!important;--mut:#6e6e73!important;--bd:#e3e3e8!important;--g:#0071e3!important;--ac:#ff9f0a!important;--ok:#248a3d!important;--bad:#d70015!important;--mut2:#c7c7cc!important;--g2:#69a7ee!important;--tint:#e8f1fc!important;color-scheme:light}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;animation:none!important;transition:none!important}
   body{background:#fff!important;font-size:10pt}
   header{position:static!important;background:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;border-bottom:1px solid #e3e3e8;padding:0 0 8px!important;margin-bottom:10px;gap:28px}
@@ -228,7 +235,10 @@ td.ajustado .pct s{background:var(--ac)!important}
   .kpi{padding:8px 10px;border-radius:8px}.kpi b{font-size:14pt}
   .g2{grid-template-columns:1fr 1fr!important;gap:10px;margin-bottom:10px}
   .mrow{grid-template-columns:1fr 1.15fr!important;gap:14px}
-  .chart{break-inside:avoid}
+  .chart,.kg,.cm-kpis,.mrow,.alertas li,svg{break-inside:avoid}
+  h1,h2,h3,.sec{break-after:avoid}
+  thead{display:table-header-group}
+  .pnota{display:block!important}
   .sec{font-size:15pt!important;margin:0 0 10px!important}
   #gres .sec{break-before:page}#gres .sec.first{break-before:auto}
   .tw{overflow:visible}
@@ -317,7 +327,13 @@ td.ajustado .pct s{background:var(--ac)!important}
   <button class="back" id="gback">‹ Inicio</button>
   <h1 style="font-size:clamp(1.8rem,5vw,2.8rem)">Gerencial</h1>
   <div class="card ctl"><div class="up" id="gup"></div>
-    <button class="btn" id="gen" style="margin-top:18px" disabled>Generar</button>
+    <div class="cm-opts" style="margin-top:18px">
+      <label class="cm-f" for="u1">Cobertura mínima (%)<input id="u1" type="number" min="0" max="100" step="1" value="70"></label>
+      <label class="cm-f" for="u2">Agotado máximo por SKU o regional (%)<input id="u2" type="number" min="0" max="100" step="1" value="25"></label>
+      <label class="cm-f" for="u3">Horas mínimas de jornada (mediana)<input id="u3" type="number" min="0" max="24" step="0.5" value="7"></label>
+    </div>
+    <p class="note" style="margin-top:8px">Umbrales para las alertas. Puedes cambiarlos después de generar.</p>
+    <button class="btn" id="gen" style="margin-top:12px" disabled>Generar</button>
     <p class="note" id="gh" style="margin-top:10px">Carga los seis archivos para activar Generar.</p></div>
   <div class="res" id="gres"></div>
 </section>
@@ -401,9 +417,16 @@ const cut=(s,k=22)=>{s=String(s??"");return s.length>k?s.slice(0,k-1)+"…":s};
 let UID=0;
 const C=(t,b,x="")=>`<div class="card ${x}"><h2>${t}</h2>${b}</div>`,K=(l,v)=>`<div class="kpi"><small>${l}</small><b>${v}</b></div>`;
 // Barras horizontales: [[etiqueta, valor]]
-function hb(it,f=v=>v,o={}){if(!it||!it.length)return"";const L=o.lw||142,BW=170,RH=26,m=Math.max(...it.map(x=>+x[1]||0))||1;
-  return`<svg viewBox="0 0 ${L+BW+70} ${it.length*RH+4}" role="img" aria-label="Gráfico de barras">`+it.map(([l,v],i)=>{const y=i*RH,w=Math.max((+v||0)/m*BW,2);
-    return`<text class="tx lab" x="0" y="${y+17}">${esc(cut(l,o.k||21))}</text><rect class="trk" x="${L}" y="${y+7}" width="${BW}" height="12" rx="6"/><rect class="bar hit" tabindex="0" data-t="${esc(l)}: ${esc(f(v))}" x="${L}" y="${y+7}" width="${w}" height="12" rx="6"/><text class="plbl" x="${L+w+6}" y="${y+17}">${esc(f(v))}</text>`}).join("")+`</svg>`}
+// Parte un texto en hasta `lin` líneas de ~k caracteres (la última termina en "…" si sobra texto)
+function wrap(s,k=26,lin=2){const w=String(s??"").split(/\s+/),out=[];let cur="";
+  for(const x of w){if((cur+" "+x).trim().length<=k)cur=(cur+" "+x).trim();else{if(cur)out.push(cur);cur=x}}if(cur)out.push(cur);
+  if(out.length>lin){out.length=lin;out[lin-1]=cut(out[lin-1]+" …",k)}return out.map(x=>x.length>k?cut(x,k):x)}
+// Barras horizontales: [[etiqueta, valor]]. Etiquetas largas en dos líneas.
+function hb(it,f=v=>v,o={}){if(!it||!it.length)return"";const L=o.lw||178,BW=158,m=Math.max(...it.map(x=>+x[1]||0))||1;let y=0,s="";
+  for(const [l,v] of it){const ls=wrap(l,o.k||27),RH=ls.length>1?38:26,w=Math.max((+v||0)/m*BW,2),by=y+(RH-12)/2;
+    s+=ls.map((x,j)=>`<text class="tx lab" x="0" y="${y+(ls.length>1?14+j*13:17)}">${esc(x)}</text>`).join("")+
+      `<rect class="trk" x="${L}" y="${by}" width="${BW}" height="12" rx="6"/><rect class="bar hit" tabindex="0" data-t="${esc(l)}: ${esc(f(v))}" x="${L}" y="${by}" width="${w}" height="12" rx="6"/><text class="plbl" x="${L+w+6}" y="${by+10}">${esc(f(v))}</text>`;y+=RH}
+  return`<svg viewBox="0 0 ${L+BW+72} ${y+4}" role="img" aria-label="Gráfico de barras">${s}</svg>`}
 // Barras apiladas 100 % (presente / agotado / no manejante)
 const SC=["var(--g)","var(--bad)","var(--mut2)"],SN=["Presente","Agotado","No manejante"];
 function sb(it){const L=104,BW=246,RH=30;return`<div class="lg">${SN.map((t,i)=>`<span><i style="background:${SC[i]}"></i>${t}</span>`).join("")}</div><svg viewBox="0 0 ${L+BW+4} ${it.length*RH+2}" role="img" aria-label="Barras apiladas">`+it.map(([l,v],i)=>{const y=i*RH,id="sb"+(++UID);let x=L;
@@ -465,6 +488,21 @@ function trend(F){const W=400,H=230,L=40,RX=W-10,X=i=>L+i/Math.max(n-1,1)*(RX-L)
   o+=`<line class="fit" x1="${X(0)}" y1="${y(a0)}" x2="${X(n-1)}" y2="${y(a1)}"/><text class="plbl" x="${X(0)+4}" y="${y(a0)-8}">${r1(a0)} M</text><text class="plbl" x="${X(n-1)}" y="${y(a1)-8}" text-anchor="end">${r1(a1)} M</text>`;
   return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia">${o}<text class="tx" x="${L}" y="${H-8}">${fd(0)}</text><text class="tx" x="${RX}" y="${H-8}" text-anchor="end">${fd(n-1)}</text><text class="tx" x="${L}" y="12">millones por día</text></svg>`}
 
+// ===== ALERTAS: reglas fijas sobre los indicadores, con umbrales editables =====
+let GD=null;
+function alertas(){if(!GD||!$("#galert"))return;const D=GD,u1=+$("#u1").value||0,u2=+$("#u2").value||0,u3=+$("#u3").value||0,L=[],P=pc1;
+  const add=(nivel,titulo,detalle,accion)=>L.push({nivel,titulo,detalle,accion});
+  const Cb=D.cobertura,A=D.agotados,Mo=D.momentos;
+  if(Cb){Cb.cobertura_regional.filter(x=>x[1]<u1).forEach(x=>add("alta",`Cobertura baja en ${x[0]}`,`${P(x[1])} de visitas efectivas (mínimo ${u1} %).`,"Revisar la ruta y las novedades de la regional; reasignar las visitas pendientes antes del cierre del mes."));
+    const ba=Cb.cobertura_asesor.filter(x=>x[1]<u1);if(ba.length)add("media",`${ba.length} asesor${ba.length>1?"es":""} con cobertura bajo ${u1} %`,ba.map(x=>`${x[0]} (${P(x[1])})`).join(", ")+".","Acompañamiento del supervisor y revisión de la carga de puntos de cada uno.");
+    const cerr=Cb.novedades.filter(x=>/YA NO EXISTE|CERRADO|NO COMERCIALIZA/i.test(x[0]));if(cerr.length)add("media","Puntos que ya no deben visitarse",cerr.map(x=>`${x[0].toLowerCase()}: ${x[1]}`).join("; ")+".","Depurar el maestro de PdV y el rutero para no programar visitas perdidas.")}
+  if(A){A.sku.filter(x=>x[1]>u2).forEach(x=>add("alta",`Agotado alto: ${x[0]}`,`${P(x[1])} de agotado en puntos que lo manejan (máximo ${u2} %).`,"Gestionar reposición con el distribuidor y revisar el pedido sugerido en los puntos afectados."));
+    A.regional.filter(x=>x[1][1]>u2).forEach(x=>add("media",`Agotado alto en ${x[0]}`,`${P(x[1][1])} de los registros están agotados.`,"Priorizar la toma de pedido en la regional en las próximas visitas."));
+    if(A.kpi.pct_causal_generica>50)add("media","Causales de agotado poco específicas",`${P(A.kpi.pct_causal_generica)} de los agotados tienen causal “AGOTADO”, “NO APLICA” o vacía.`,"Pedir en la app de campo que se tipifique la causa real (rotación, pedido insuficiente, cartera…).")}
+  if(Mo){const hj=Mo.horas_asesor.filter(x=>x[1]<u3);if(hj.length)add("media",`Jornadas cortas en ${hj.length} asesor${hj.length>1?"es":""}`,hj.map(x=>`${x[0]} (${r1(x[1]).toLocaleString("es-CO")} h)`).join(", ")+".",`Verificar las marcas de inicio y fin de jornada (mínimo ${u3} h).`)}
+  L.sort((a,b)=>(a.nivel==="alta"?0:1)-(b.nivel==="alta"?0:1));
+  $("#galert").innerHTML=L.length?`<div class="card"><ul class="alertas">${L.map(x=>`<li class="${x.nivel}"><b>${esc(x.titulo)}</b><span class="niv">${x.nivel==="alta"?"Prioridad alta":"Prioridad media"}</span><p>${esc(x.detalle)}</p><p class="acc">Acción sugerida: ${esc(x.accion)}</p></li>`).join("")}</ul><p class="note" style="margin-top:10px">Umbrales usados: cobertura mínima ${u1} %, agotado máximo ${u2} %, jornada mínima ${u3} h.</p></div>`:`<div class="card"><p>No hay alertas con los umbrales actuales (cobertura mínima ${u1} %, agotado máximo ${u2} %, jornada mínima ${u3} h).</p></div>`}
+["#u1","#u2","#u3"].forEach(s=>$(s).oninput=alertas);
 $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momentos","actividades","obsequios"],fdat=new FormData();
   keys.forEach((k,i)=>{if(gf[i])fdat.append(k,gf[i])});const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
   try{D=await api("/api/gerencial",fdat);$("#gh").textContent="Listo."}catch(e){$("#gh").textContent=e.message;b.disabled=false;return}b.disabled=false;
@@ -474,9 +512,10 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
   const SEC=t=>`<h2 class="sec${sec++?"":" first"}">${t}</h2>`;
   if(S){Y=S.y;n=S.n;d0=Date.parse(S.inicio);FM=null;if(S.ajuste){const F=S.ajuste;FM={...F,p:i=>F.a+F.b*i+F.dm[dw(i)]}}}
   if(D.avisos.length)h+=`<p class="note">${D.avisos.map(esc).join(" ")}</p>`;
+  GD=D;h+=SEC("Alertas y recomendaciones")+`<div id="galert"></div>`;
   if(Cb){h+=SEC("Cobertura")+`<div class="kg">${K("Cobertura (visitas efectivas)",P(Cb.kpi.cobertura))}${K("Visitas",nf(Cb.kpi.visitas))}${K("PdV visitados",nf(Cb.kpi.pdv_visitados))}${K("Minutos por visita (mediana)",nf(Cb.kpi.min_visita))}</div>`+
     g2(G("PdV visitados por asesor",Cb.pdv_por_asesor,v=>nf(v)+" PdV"),G("% de cobertura por asesor",Cb.cobertura_asesor,P))+
-    g2(G("% de cobertura por regional",Cb.cobertura_regional,P),Cb.novedades.length?C("Novedades de visitas no efectivas",hb(Cb.novedades.slice(0,8).map(x=>[x[0],x[2]]),P,{lw:150,k:26})+`<p class="note" style="margin-top:6px">Porcentaje sobre el total de visitas.</p>`):"")}
+    g2(G("% de cobertura por regional",Cb.cobertura_regional,P),Cb.novedades.length?C("Novedades de visitas no efectivas",hb(Cb.novedades.slice(0,8).map(x=>[x[0],x[2]]),P)+`<p class="note" style="margin-top:6px">Porcentaje sobre el total de visitas.</p>`):"")}
   if(V){h+=SEC("Venta")+(V.alertas.length?`<div class="card alerta"><h2>Alertas en la base de ventas</h2>${V.alertas.map(a=>`<p class="note">${esc(a)}</p>`).join("")}</div>`:"")+
     `<div class="kg">${K("Venta total",M(V.kpi.total/1e6))}${K("Unidades",nf(V.kpi.unidades))}${K("Pedidos",nf(V.kpi.pedidos))}${K("Ticket promedio","$ "+nf(V.kpi.ticket))}${K("PdV con pedido",nf(V.kpi.pdv))}${K("Fin de semana (vie–dom)",P(V.kpi.pct_fds))}</div>`+
     (S?C(`Venta por día · ${V.kpi.desde} a ${V.kpi.hasta}`,'<div id="t1"></div>'):"")+
@@ -484,7 +523,7 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     g2(G("Venta por familia (millones)",V.familia,M),G("Venta por regional (millones)",V.regional,M))+
     (V.estado.length>1?g2(G("Venta por estado del pedido (millones)",V.estado,M)):"")+
     C("Ranking de asesores",T(["#","Asesor","Unidades","Venta","Pedidos"],V.asesores.map((r,i)=>[i+1,r[0],nf(r[1]),M(r[2]),r[3]])))}
-  if(A){h+=SEC("Agotados")+`<div class="kg">${K("Agotado (sobre lo medido)",P(A.kpi.pct_agotado))}${K("Agotado (sobre manejantes)",P(A.kpi.pct_agotado_manejantes))}${K("Presente",P(A.kpi.pct_presente))}${K("No manejante",P(A.kpi.pct_no_manejante))}${K("PdV medidos",nf(A.kpi.pdv))}</div>`+
+  if(A){h+=SEC("Agotados")+`<div class="kg">${K("Agotado (sobre lo medido)",P(A.kpi.pct_agotado))}${K("Agotado (sobre manejantes)",P(A.kpi.pct_agotado_manejantes))}${K("Presente",P(A.kpi.pct_presente))}${K("No manejante",P(A.kpi.pct_no_manejante))}${K("PdV medidos",nf(A.kpi.pdv))}${A.kpi.pct_causal_generica!=null?K("Causal genérica (“AGOTADO”, “NO APLICA”)",P(A.kpi.pct_causal_generica)):""}</div>`+
     g2(C("Estado por regional",sb(A.regional)),C("Estado por familia",sb(A.familia)))+
     g2(A.semanas.length>1?C("Tendencia semanal de agotados",`<p class="note">% agotado sobre puntos que manejan el SKU, por semana.</p>`+line(A.semanas,P)):"",G("% agotado por SKU",A.sku,P,"Sobre puntos que manejan el SKU."))+
     g2(G("Causales de agotado",A.causas,v=>nf(v)+" registros"),G("PdV con más SKUs agotados",A.pdv_top,v=>nf(v)+" SKUs"))}
@@ -501,9 +540,11 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     (Tn?R("Tendencia","Inferencial",`<p>La venta cambia <b>${Tn.pendiente.toLocaleString("es-CO")} M por día</b> (IC 95 % ${Tn.ic95[0].toLocaleString("es-CO")} a ${Tn.ic95[1].toLocaleString("es-CO")}).</p><p>La tendencia es ${sig(Tn.significativa)}, p = ${Tn.p_valor.toLocaleString("es-CO")}.</p><p class="note">Regresión lineal con efecto del día de la semana. Puntos: venta diaria; línea: tendencia.</p>`,trend(F)):"")+
     (AG&&AG.n>=10&&AG.puntos?R("Agotados y venta","Inferencial",`<p>Correlación de Spearman entre el % de agotado y la venta de cada PdV: <b>${AG.spearman.toLocaleString("es-CO")}</b> (Pearson ${AG.pearson.toLocaleString("es-CO")}, n = ${AG.n}).</p><p>La relación es ${sig(AG.significativa)}.</p><p class="note">Negativa = más agotados, menos venta. Línea punteada: ajuste lineal.</p>`,scat(AG.puntos,"% agotado del PdV","Venta (M)",v=>Math.round(v)+"%",v=>r1(v).toLocaleString("es-CO"))):"")+
     (AV&&AV.grupos?R("Actividades y venta","Inferencial",`<p>Venta media por PdV: ${AV.grupos.map(g=>`${g[0].toLowerCase()} <b>${M(g[2])}</b> (${g[1]} PdV)`).join(", ")}.</p><p>Diferencia ${M(AV.diferencia)}, IC 95 % ${M(AV.ic95[0])} a ${M(AV.ic95[1])}; ${sig(AV.significativa)}.</p><p class="note">Barras: media; líneas: IC 95 % de cada grupo. Asociación, no causalidad.</p>`,AV.grupos[0].length>3?gbars(AV.grupos,M):""):"")+
+    (MD.obsequio_vs_venta&&MD.obsequio_vs_venta.grupos?(OV=>R("Obsequios y venta","Inferencial",`<p>Venta media por PdV: ${OV.grupos.map(g=>`${g[0].toLowerCase()} <b>${M(g[2])}</b> (${g[1]} PdV)`).join(", ")}.</p><p>Diferencia ${M(OV.diferencia)}, IC 95 % ${M(OV.ic95[0])} a ${M(OV.ic95[1])}; ${sig(OV.significativa)}.</p><p class="note">Solo puntos con venta en el periodo. “Sin entrega registrada” incluye puntos que no tuvieron la encuesta de obsequios. Con pocas entregas por tipo de obsequio no es confiable medir el efecto de cada obsequio por separado.</p>`,gbars(OV.grupos,M)))(MD.obsequio_vs_venta):"")+
     (F?C('Pronóstico a 14 días <span class="chip">Predictiva</span>',`<p>Venta esperada en los próximos 14 días: <b>${M(Pr.total)}</b> (IC 95 % ${M(Pr.ic95_total[0])} a ${M(Pr.ic95_total[1])}).</p><div id="t2"></div><p class="note">Banda: intervalo del 95 % de cada día; línea punteada: tendencia.${Va?` Validación en los últimos ${Va.dias} días no vistos: ${Va.mape!=null?"MAPE "+r1(Va.mape)+" %, ":""}RMSE ${Va.rmse} M; el intervalo cubrió ${Va.cubiertos} de ${Va.dias} días.`:` Con ${S.n} días aún no hay datos suficientes para validar en días no vistos (se necesitan 28).`}</p>`,"wide"):`<p class="note">${esc(S.aviso||"")}</p>`)}
-  $("#gres").innerHTML=`<p class="note ponly pfecha"></p>`+h+'<button class="btn alt noprint" id="gpdf">Descargar PDF</button>';
+  $("#gres").innerHTML=`<p class="note ponly pfecha"></p>`+h+'<button class="btn alt noprint" id="gpdf">Descargar PDF</button><p class="note noprint" style="margin-top:8px">Al guardar como PDF, desmarca “Encabezados y pies de página” para que no salga la dirección de la página.</p>';
   if(S){if($("#t1"))ts($("#t1"),0);if($("#t2"))ts($("#t2"),1)}
+  alertas();
   $("#gpdf").onclick=()=>imprimir("Informe gerencial NexGard"+(V?" "+V.kpi.desde.replace(/\//g,"-")+" a "+V.kpi.hasta.replace(/\//g,"-"):""));
   $("#gres").classList.add("show");$("#gres").scrollIntoView({behavior:"smooth"});tips($("#gres"))};
 

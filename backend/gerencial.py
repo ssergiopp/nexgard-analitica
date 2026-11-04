@@ -74,6 +74,8 @@ def agotados(df):
         m = g.a.sum() + g.p.sum()
         return g.a.sum() / m * 100 if m else np.nan
 
+    ag = d[d.a > 0]
+    generica = ag.causa.map(norm_txt).isin(["", "AGOTADO", "NO APLICA"])
     sem = d.dropna(subset=["f"])
     sem = sem.groupby(sem.f.dt.to_period("W-SUN").dt.start_time).apply(pct_ag, include_groups=False)
     total = d[["a", "p", "n"]].sum().sum()
@@ -81,7 +83,8 @@ def agotados(df):
     return {
         "kpi": {"pct_agotado": _pct(d.a.sum(), total), "pct_agotado_manejantes": r(pct_ag(d)),
                 "pct_presente": _pct(d.p.sum(), total), "pct_no_manejante": _pct(d.n.sum(), total),
-                "registros": int(len(d)), "pdv": int(d.pdv.nunique())},
+                "registros": int(len(d)), "pdv": int(d.pdv.nunique()),
+                "pct_causal_generica": _pct(generica.sum(), len(ag))},
         "regional": [[k, tri(g)] for k, g in d.groupby("reg")],
         "familia": [[k, tri(g)] for k, g in d.groupby("fam")],
         "semanas": [[k.strftime("%d/%m"), r(v)] for k, v in sem.items()],
@@ -173,6 +176,7 @@ def obsequios(df):
     d = pd.DataFrame({
         "preg": df["PREGUNTA"].map(limpio), "resp": df["RESPUESTA_1"].map(limpio),
         "asesor": df[ase].map(limpio) if ase else "", "reg": df["REGION"].map(limpio) if "REGION" in df else "",
+        "pdv": num(df["ID_PV"]) if "ID_PV" in df else np.nan,
     })
     d = d[d.resp != ""]
     out = {"kpi": {"registros": int(len(d))}, "preguntas": []}
@@ -186,6 +190,7 @@ def obsequios(df):
         out["kpi"]["pct_entrega"] = _pct(si.sum(), len(entrega))
         out["entrega_asesor"] = pares(entrega.assign(si=si).groupby("asesor").si.mean() * 100)
         out["entrega_regional"] = pares(entrega.assign(si=si).groupby("reg").si.mean() * 100)
+        out["_pdv_entrega"] = set(entrega[si].pdv.dropna().astype("int64"))
     return out
 
 
@@ -210,6 +215,9 @@ def analizar(arch: dict):
                                                            "Con actividad", "Sin actividad")
         if "agotados" in R:
             modelo["agotados_vs_venta"] = correlacion(R["agotados"]["_pdv"], vp / 1e6)
+        if "obsequios" in R and R["obsequios"].get("_pdv_entrega") is not None:
+            con = vp.index.isin(list(R["obsequios"]["_pdv_entrega"]))
+            modelo["obsequio_vs_venta"] = comparar_grupos(vp[con] / 1e6, vp[~con] / 1e6, "Con obsequio", "Sin entrega registrada")
     else:
         avisos.append("Sin archivo de ventas no se calcula el modelo de tendencia ni el pronóstico.")
     R["modelo"] = modelo
