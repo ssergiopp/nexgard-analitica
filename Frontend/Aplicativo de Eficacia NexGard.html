@@ -502,8 +502,8 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     g2(G("Participación por tipo",Ac.tipo,P),G("Participación por subtipo",Ac.subtipo.slice(0,10),P))+g2(G("Participación por regional",Ac.regional,P),G("PdV con actividad por asesor",Ac.asesor,v=>nf(v)+" PdV"))}
   if(Mo){h+=SEC("Jornadas")+`<div class="kg">${K("Registros",nf(Mo.kpi.registros))}${K("Jornadas (asesor-día)",nf(Mo.kpi.dias_asesor))}${K("Horas por jornada (mediana)",nf(Mo.kpi.horas_jornada))}</div>`+
     g2(G("Horas de jornada por asesor (mediana)",Mo.horas_asesor,v=>r1(v).toLocaleString("es-CO")+" h"),Mo.unidades_producto.length?G("Unidades por producto",Mo.unidades_producto,v=>nf(v)+" uds"):G("Registros por momento",Mo.actividades,v=>nf(v)))}
-  if(Ob){const q=Ob.preguntas.filter(x=>!/ENTREGO OBSEQUIO/i.test(x.pregunta));h+=SEC("Obsequios")+`<div class="kg">${Ob.kpi.pct_entrega!=null?K("Visitas con entrega",P(Ob.kpi.pct_entrega)):""}${K("Respuestas",nf(Ob.kpi.registros))}</div>`+
-    g2(G("% de entrega por asesor",Ob.entrega_asesor,P),G("% de entrega por regional",Ob.entrega_regional,P))+g2(...q.map(x=>G(`${esc(x.pregunta.charAt(0)+x.pregunta.slice(1).toLowerCase())} (n=${x.n})`,x.opciones.map(o=>[o[0],o[2]]),P)))}
+  if(Ob){const U=v=>nf(v)+" und";h+=SEC("Obsequios")+`<div class="kg">${K("Unidades entregadas",nf(Ob.kpi.unidades))}${K("Entregas (visitas)",nf(Ob.kpi.entregas))}${K("Tipos de obsequio",nf(Ob.kpi.tipos))}</div>`+
+    g2(G("Cantidad por tipo de obsequio",Ob.por_tipo,U),G("Cantidad por regional",Ob.por_regional,U))+g2(G("Cantidad por asesor",Ob.por_asesor,U))}
   if(S){const F=S.ajuste,Va=S.validacion,Tn=S.tendencia,Pr=S.pronostico,AV=MD.actividad_vs_venta,AG=MD.agotados_vs_venta,sig=x=>x?"<b>estadísticamente significativa</b> (p < 0,05)":"<b>no significativa</b> (p ≥ 0,05)";
     const R=(t,chip,txt,graf)=>`<div class="card mrow"><div><h2>${t} <span class="chip">${chip}</span></h2>${txt}</div><div>${graf}</div></div>`;
     h+=SEC("Modelo estadístico")+

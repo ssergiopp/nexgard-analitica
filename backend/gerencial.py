@@ -171,26 +171,33 @@ def actividades(df, pdv_visitados=None):
 
 
 def obsequios(df):
+    """Cantidades de obsequios entregados por tipo, regional y asesor.
+
+    Cada visita con entrega trae dos filas: "SELECCIONE EL OBSEQUIO ENTREGADO" (tipo, en RESPUESTA 1) y
+    "UNIDADES ENTREGADAS DEL OBSEQUIO" (unidades, en RESPUESTA 2). Se emparejan por ID_RUTA (la visita).
+    Si una visita no trae unidades, cuenta 1.
+    """
     exigir(df, ["PREGUNTA", "RESPUESTA_1"], "obsequios")
     ase = "NOMBRE_ASESOR" if "NOMBRE_ASESOR" in df else None
+    vis = "ID_RUTA" if "ID_RUTA" in df else ("ID_REGISTRO" if "ID_REGISTRO" in df else None)
     d = pd.DataFrame({
-        "preg": df["PREGUNTA"].map(limpio), "resp": df["RESPUESTA_1"].map(limpio),
+        "preg": df["PREGUNTA"].map(norm_txt), "r1": df["RESPUESTA_1"].map(limpio),
+        "r2": df["RESPUESTA_2"].map(limpio) if "RESPUESTA_2" in df else "",
         "asesor": df[ase].map(limpio) if ase else "", "reg": df["REGION"].map(limpio) if "REGION" in df else "",
         "pdv": num(df["ID_PV"]) if "ID_PV" in df else np.nan,
+        "vis": df[vis].astype(str) if vis else df.index.astype(str),
     })
-    d = d[d.resp != ""]
-    out = {"kpi": {"registros": int(len(d))}, "preguntas": []}
-    for p, g in d.groupby("preg", sort=False):
-        c = g.resp.map(norm_txt).value_counts()
-        out["preguntas"].append({"pregunta": p, "n": int(len(g)),
-                                 "opciones": [[k, int(v), _pct(v, len(g))] for k, v in c.head(12).items()]})
-    entrega = d[d.preg.map(norm_txt).str.contains("ENTREGO OBSEQUIO")]
-    if len(entrega):
-        si = entrega.resp.map(norm_txt).isin(["SI", "SÍ"])
-        out["kpi"]["pct_entrega"] = _pct(si.sum(), len(entrega))
-        out["entrega_asesor"] = pares(entrega.assign(si=si).groupby("asesor").si.mean() * 100)
-        out["entrega_regional"] = pares(entrega.assign(si=si).groupby("reg").si.mean() * 100)
-        out["_pdv_entrega"] = set(entrega[si].pdv.dropna().astype("int64"))
+    tipo = d[d.preg.str.contains("SELECCIONE EL OBSEQUIO") & (d.r1 != "")]
+    und = d[d.preg.str.contains("UNIDADES ENTREGADAS")]
+    und = und.assign(u=num(und.r2.where(und.r2 != "", und.r1))).groupby("vis").u.sum()
+    e = tipo.assign(u=tipo.vis.map(und).fillna(1).where(lambda s: s > 0, 1))
+    out = {"kpi": {"entregas": int(len(e)), "unidades": r(e.u.sum(), 0), "tipos": int(e.r1.nunique())},
+           "por_tipo": pares(e.groupby("r1").u.sum(), 0),
+           "por_regional": pares(e.groupby("reg").u.sum(), 0),
+           "por_asesor": pares(e.groupby("asesor").u.sum(), 0)}
+    # PdV con entrega (lo usa el modelo "Obsequios y venta")
+    si = d[d.preg.str.contains("ENTREGO OBSEQUIO") & d.r1.map(norm_txt).isin(["SI"])]
+    out["_pdv_entrega"] = set(si.pdv.dropna().astype("int64")) | set(e.pdv.dropna().astype("int64"))
     return out
 
 
