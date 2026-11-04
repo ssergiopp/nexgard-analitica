@@ -450,7 +450,11 @@ function ts(el,model){let f=0,t=n-1;el.innerHTML=`<div class="filters noprint"><
         o+=`<polygon points="${up.concat(lo).join(" ")}" class="band"/><polyline class="ln fc" points="${ln.join(" ")}"/>`;
         for(let i=n;i<n+14;i++){const p=FM.p(i);o+=`<circle class="hit dot fc" tabindex="0" data-t="${fd(i)} pronóstico: ${r1(p)} M (IC 95 %: ${r1(Math.max(p-1.96*FM.s,0))} a ${r1(p+1.96*FM.s)})" cx="${X(i)}" cy="${y(p)}" r="3.5"/>`+((i-n)%2===0?`<text class="plbl sm" x="${X(i)}" y="${y(p)-7}" text-anchor="middle">${r1(Math.max(p,0))}</text>`:"")}}}
     for(let i=f;i<=t;i++){o+=`<circle class="hit dot${wk(i)?" fds":""}" tabindex="0" data-t="${fd(i)}${wk(i)?" (fin de semana)":""}: ${Y[i]} M" cx="${X(i)}" cy="${y(Y[i])}" r="3.5"/>`;if(Y[i]>0)o+=`<text class="plbl sm" x="${X(i)}" y="${y(Y[i])-7}" text-anchor="middle">${r1(Y[i])}</text>`}
-    sv.innerHTML=`<svg viewBox="0 0 640 ${H}" role="img" aria-label="Serie diaria">${o}<text class="tx" x="${L}" y="${H-8}">${fd(f)}</text><text class="tx" x="630" y="${H-8}" text-anchor="end">${fd(E)}</text><text class="tx" x="${L}" y="12">millones</text></svg>`;
+    // Eje X: fechas cada `st` días; en el pronóstico, línea que separa lo real de lo proyectado.
+    const st=Math.max(1,Math.ceil((E-f)/9));let ax="";for(let i=f;i<=E;i+=st){if(E-i<st*.6&&i!==f)continue;ax+=`<line class="gl" x1="${X(i)}" x2="${X(i)}" y1="${y(0)}" y2="${y(0)+4}"/><text class="tx" x="${X(i)}" y="${H-8}" text-anchor="middle">${fd(i)}</text>`}
+    ax+=`<text class="tx" x="${X(E)}" y="${H-8}" text-anchor="end">${fd(E)}</text>`;
+    if(fc)ax+=`<line class="fit" x1="${X(n-.5)}" x2="${X(n-.5)}" y1="20" y2="${y(0)}" style="stroke-dasharray:3 4;stroke-width:1.2"/><text class="tx" x="${X(n-.5)+6}" y="28">Pronóstico</text>`;
+    sv.innerHTML=`<svg viewBox="0 0 640 ${H}" role="img" aria-label="Serie diaria">${o}${ax}<text class="tx" x="${L}" y="12">millones</text></svg>`;
     zl.textContent=`${fd(f)} a ${fd(t)} · ${t-f+1} días · naranja = fin de semana`};
   zf.oninput=()=>{f=Math.min(+zf.value,t-4);zf.value=f;draw()};zt.oninput=()=>{t=Math.max(+zt.value,f+4);zt.value=t;draw()};draw()}
 // Tendencia: venta diaria y recta ajustada (sin el efecto del día de la semana)
