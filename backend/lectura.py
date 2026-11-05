@@ -76,7 +76,13 @@ def leer(data: bytes, nombre: str, hoja=None) -> pd.DataFrame:
         raise
     except Exception as e:  # noqa: BLE001
         raise ErrorArchivo(f"No se pudo leer '{nombre}': {e}") from e
-    df.columns = [norm_col(c) for c in df.columns]
+    # Nombres normalizados; si dos columnas quedan con el mismo nombre (p. ej. "Precio total" y "PRECIO_TOTAL"),
+    # se usa la primera y las demás se renombran NOMBRE_2, NOMBRE_3…
+    vistos, nombres = {}, []
+    for c in (norm_col(c) for c in df.columns):
+        vistos[c] = vistos.get(c, 0) + 1
+        nombres.append(c if vistos[c] == 1 else f"{c}_{vistos[c]}")
+    df.columns = nombres
     df = df.loc[:, [c for c in df.columns if c and not c.startswith("UNNAMED")]]
     return quitar_pruebas(df.dropna(how="all"))
 
