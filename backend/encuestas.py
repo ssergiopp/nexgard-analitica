@@ -4,7 +4,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from asesores import nombres
+from asesores import estandarizar, nombres
 from lectura import ErrorArchivo, ciudad, exigir, fecha, limpio, norm_txt, num, r
 
 COLS_ASESOR = ("COLABORADOR_A", "COLABORADOR", "ASESOR", "MERCAIMPULSADOR")
@@ -36,6 +36,7 @@ def _maestro_pdv(df: pd.DataFrame) -> pd.DataFrame:
         "asesor": df[col].map(limpio),
     }).dropna(subset=["id"])
     m["id"] = m["id"].astype("int64")
+    m["asesor"] = estandarizar(m["asesor"])  # mismo asesor escrito distinto en la hoja PDVS
     return m[m.asesor != ""].drop_duplicates("id")
 
 

@@ -42,6 +42,7 @@ Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archiv
 
 **Asesores**
 - Cada archivo escribe el nombre distinto (STEFANY / ESTEFANY). Se usa el nombre de la hoja PDVS, cruzando por el ID de usuario y los puntos que registró.
+- Si no se puede cruzar por ID, se une por similitud del nombre: el primer nombre suena igual (STEPHANNY ≈ STHEPANY ≈ STEPPANY) y comparten al menos un apellido. Queda el nombre de la hoja PDVS o, si no está ahí, el más frecuente. En Gerencial, un asesor con varios usuarios aparece una sola vez en el selector.
 
 **Comisiones** (máximo $200.000 por asesor; montos editables en la página)
 

@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 
+from asesores import agrupar
 from lectura import ErrorArchivo, exigir, familia, fecha, fecha_hora, limpio, norm_txt, num, pares, r
 from modelo import comparar_grupos, correlacion, serie_diaria
 
@@ -207,34 +208,62 @@ COL_ASESOR = {"ventas": ("ID_ASESOR", "ASESOR"), "agotados": ("ID_USUARIO", "NOM
               "actividades": ("ID_USUARIO", "PROM_MERCADERISTA_SUPERVISOR"), "obsequios": ("ID_ASESOR", "NOMBRE_ASESOR")}
 
 
-def lista_asesores(arch: dict):
-    """[[id, nombre], ...] con el nombre más frecuente de cada ID de usuario entre todos los archivos."""
+def _ids_nombres(arch: dict) -> pd.DataFrame:
     filas = []
     for k, df in arch.items():
         ci, cn = COL_ASESOR.get(k, (None, None))
         if ci in df and cn in df:
             filas.append(pd.DataFrame({"id": df[ci].astype(str).str.strip(), "n": df[cn].map(limpio)}))
     if not filas:
-        return []
+        return pd.DataFrame(columns=["id", "n"])
     t = pd.concat(filas)
-    t = t[(t.id != "") & (t.n != "")]
+    return t[(t.id != "") & (t.n != "")]
+
+
+def unificar_nombres(arch: dict) -> dict:
+    """Un nombre por asesor en todos los archivos: por ID de usuario (nombre más frecuente) y por similitud del nombre
+    (STEPHANNY RODRIGUEZ = STHEPANY RODRIGUEZ MONTOYA)."""
+    t = _ids_nombres(arch)
+    if t.empty:
+        return arch
+    estandar = agrupar(t.n.value_counts().to_dict())
+    por_id = t.assign(n=t.n.map(estandar)).groupby("id").n.agg(lambda s: s.mode().iloc[0])
+    out = {}
+    for k, df in arch.items():
+        ci, cn = COL_ASESOR.get(k, (None, None))
+        if ci in df and cn in df:
+            propio = df[cn].map(limpio)
+            df = df.assign(**{cn: df[ci].astype(str).str.strip().map(por_id).fillna(propio.map(estandar)).fillna(propio)})
+        out[k] = df
+    return out
+
+
+def lista_asesores(arch: dict):
+    """[[ids, nombre], ...]: un renglón por nombre estándar; `ids` son los ID de usuario separados por coma
+    (un mismo asesor puede tener más de un usuario)."""
+    t = _ids_nombres(arch)
+    if t.empty:
+        return []
     nom = t.groupby("id").n.agg(lambda s: s.mode().iloc[0])
-    return sorted([[i, n] for i, n in nom.items()], key=lambda x: x[1])
+    ids = nom.groupby(nom).apply(lambda s: ",".join(sorted(s.index)))
+    return sorted([[i, n] for n, i in ids.items()], key=lambda x: x[1])
 
 
 def analizar(arch: dict, asesor: str | None = None):
     """arch: {nombre: DataFrame} con cualquiera de: ventas, agotados, cobertura, momentos, actividades, obsequios.
     `asesor`: ID de usuario; si se indica, todo el informe se calcula solo con sus registros."""
     R, avisos = {}, []
+    arch = unificar_nombres(arch)
     lista = lista_asesores(arch)
     if asesor:
         nombre = dict(lista).get(str(asesor))
         if not nombre:
             raise ErrorArchivo("El asesor elegido no aparece en los archivos.")
+        suyos = set(str(asesor).split(","))
         filtrado = {}
         for k, df in arch.items():
             ci = COL_ASESOR.get(k, (None,))[0]
-            d = df[df[ci].astype(str).str.strip() == str(asesor)] if ci in df else df.iloc[0:0]
+            d = df[df[ci].astype(str).str.strip().isin(suyos)] if ci in df else df.iloc[0:0]
             if len(d):
                 filtrado[k] = d
             else:
