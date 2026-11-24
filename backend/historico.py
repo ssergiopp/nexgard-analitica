@@ -225,6 +225,9 @@ def resumen() -> dict:
 def serie_diaria(fuente: str = "ambas") -> pd.Series:
     """Venta diaria en millones. Con dos fuentes se usa solo el periodo en que ambas tienen datos."""
     v = ventas_df(fuente)
+    # Misma regla de atípicos del informe gerencial: línea con >= 100 unidades y >= 20 veces la mediana del SKU.
+    q = v.CANTIDAD.astype(float)
+    v = v[~((q >= 100) & (q >= 20 * q.groupby(v.DESCRIPCION_PRODUCTO).transform("median")))]
     v = v.assign(f=pd.to_datetime(v.FECHA_CAPTURA), m=v.PRECIO_TOTAL.astype(float) / 1e6)
     ini, fin = v.f.min(), v.f.max()
     if fuente == "ambas":

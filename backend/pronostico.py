@@ -136,7 +136,9 @@ def box_jenkins(y: np.ndarray) -> dict:
         "n": n,
         "adf": {"estadistico": r(adf[0], 3), "p": r(adf[1], 4), "estacionaria": bool(adf[1] < 0.05)},
         "adf_diferenciada": {"estadistico": r(adf_d[0], 3), "p": r(adf_d[1], 4)} if adf_d else None,
-        "kpss": {"estadistico": r(kp[0], 3), "p": r(kp[1], 4)} if np.isfinite(kp[0]) else None,
+        # statsmodels solo calcula el p de KPSS entre 0,01 y 0,10: en los extremos es una cota (p ≥ 0,10 o p ≤ 0,01).
+        "kpss": {"estadistico": r(kp[0], 3), "p": r(kp[1], 4),
+                 "cota": ">=" if kp[1] >= 0.1 else "<=" if kp[1] <= 0.01 else "="} if np.isfinite(kp[0]) else None,
         "d": d, "D": D,
         "acf": [r(v, 3) for v in acf_v[1:]], "pacf": [r(v, 3) for v in pacf_v[1:]], "limite": r(lim, 3),
         "orden": list(orden), "orden_estacional": list(sorden) + [S], "aic": r(aic, 1), "bic": r(m.bic, 1),
@@ -169,7 +171,36 @@ def _metricas(real, pred):
     e = real - pred
     nz = real > 0
     return {"rmse": r(math.sqrt(np.mean(e ** 2)), 3), "mae": r(np.mean(np.abs(e)), 3),
-            "mape": r(np.mean(np.abs(e[nz]) / real[nz]) * 100, 1) if nz.any() else None}
+            "mape": r(np.mean(np.abs(e[nz]) / real[nz]) * 100, 1) if nz.any() else None,
+            "sesgo": r(np.mean(e), 3),  # error medio: negativo = el modelo pronostica de más
+            "r": r(np.corrcoef(real, pred)[0, 1], 3) if np.std(pred) > 0 else None,
+            "durbin_watson": r(float(np.sum(np.diff(e) ** 2) / np.sum(e ** 2)), 2)}
+
+
+def friedman_posthoc(errores: dict, mejor: str) -> dict:
+    """¿Rinden igual los modelos? Friedman sobre el error absoluto (los modelos pronostican los mismos días, así que
+    las mediciones están pareadas) y comparaciones por pares con Wilcoxon de rangos con signo y corrección de
+    Bonferroni. Incluye la evidencia de los supuestos."""
+    nombres = list(errores)
+    A = np.column_stack([np.abs(errores[k]) for k in nombres])
+    fr = stats.friedmanchisquare(*A.T)
+    rangos = pd.DataFrame(A, columns=nombres).rank(axis=1).mean()
+    m = len(nombres) * (len(nombres) - 1) // 2
+    pares = []
+    for i in range(len(nombres)):
+        for j in range(i + 1, len(nombres)):
+            try:
+                p = float(stats.wilcoxon(A[:, i], A[:, j]).pvalue)
+            except ValueError:  # diferencias todas cero
+                p = 1.0
+            pb = min(p * m, 1.0)
+            pares.append([nombres[i], nombres[j], r(p, 4), r(pb, 4), bool(pb < 0.05)])
+    sw = stats.shapiro(errores[mejor])
+    return {"estadistico": r(float(fr.statistic), 2), "gl": len(nombres) - 1, "p": float(fr.pvalue),
+            "significativa": bool(fr.pvalue < 0.05), "bloques": int(A.shape[0]), "tratamientos": len(nombres),
+            "rango_medio": [[k, r(v, 2)] for k, v in rangos.sort_values().items()],
+            "comparaciones": m, "pares": pares,
+            "shapiro_mejor": {"modelo": mejor, "p": r(float(sw.pvalue), 4)}}
 
 
 def analizar(serie: pd.Series, horizonte: int = 14, fuente: str = "ambas") -> dict:
@@ -204,6 +235,7 @@ def analizar(serie: pd.Series, horizonte: int = 14, fuente: str = "ambas") -> di
         t["puesto"] = i + 1
         t["dm_p"] = None if t["modelo"] == mejor else r(_dm(errores[t["modelo"]], errores[mejor], horizonte), 4)
     ref = min((t for t in ok if t["familia"] == "Referencia"), key=lambda t: t["rmse"])
+    fried = friedman_posthoc({t["modelo"]: errores[t["modelo"]] for t in ok}, mejor)
     for t in ok:
         t["mejora_vs_referencia"] = r((1 - t["rmse"] / ref["rmse"]) * 100, 1) if ref["rmse"] else None
 
@@ -220,7 +252,7 @@ def analizar(serie: pd.Series, horizonte: int = 14, fuente: str = "ambas") -> di
         "box_jenkins": bj,
         "validacion": {"pliegues": pliegues, "dias_evaluados": int(len(real)), "cortes": [fechas[c] for c in cortes]},
         "comparacion": ok + [t for t in tabla if "error" in t],
-        "mejor": mejor, "referencia": ref["modelo"],
+        "mejor": mejor, "referencia": ref["modelo"], "friedman": fried,
         "pronostico": {"fechas": [d.strftime("%Y-%m-%d") for d in fut], "modelo": mejor,
                        "valor": [r(v, 3) for v in p_mejor],
                        "lo": [r(max(v - 1.96 * sd, 0), 3) for v in p_mejor],

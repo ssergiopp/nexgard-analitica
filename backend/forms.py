@@ -62,10 +62,14 @@ def leer_celda(texto) -> dict:
     if not din:
         return {"q": q, "p": None, "estado": "sin_precio", "motivo": ""}
     # Precio: un valor en rango de precio unitario; o un total que dividido por la cantidad da un precio plausible.
-    for p in din:
-        if PRECIO_MIN <= p <= PRECIO_MAX and any(abs(p * q - t) <= 0.03 * t for t in din if t != p):
+    for i, p in enumerate(din):  # por posición: con 1 unidad el precio y el total son el mismo número
+        if PRECIO_MIN <= p <= PRECIO_MAX and any(abs(p * q - t) <= 0.03 * t for j, t in enumerate(din) if j != i):
             return {"q": q, "p": p, "estado": "ok", "motivo": ""}
     unit = [p for p in din if PRECIO_MIN <= p <= PRECIO_MAX]
+    if len(din) >= 2 and unit:
+        # Hay precio y total, pero cantidad × precio no da el total escrito ('10+$39.400=197000'): se revisa a mano.
+        return {"q": q, "p": min(unit), "estado": "duda",
+                "motivo": "El total escrito no cuadra con cantidad × precio"}
     if unit:
         return {"q": q, "p": min(unit), "estado": "ok", "motivo": ""}
     tot = [t / q for t in din if PRECIO_MIN <= t / q <= PRECIO_MAX]
