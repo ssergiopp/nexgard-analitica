@@ -4,3 +4,6 @@ python-multipart>=0.0.9
 pandas>=2.2
 numpy>=1.26
 openpyxl>=3.1
+statsmodels>=0.14
+scikit-learn>=1.5
+xgboost>=2.0

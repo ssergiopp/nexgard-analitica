@@ -18,6 +18,7 @@ Manual: `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
 | Encuestas | `CADENAS.xlsx`, `plan de trabajo y pdv.xlsx` (hoja **PDVS**), una encuesta (`precios`, `distribuidores`, `atrevia y canilaner`) | `POST /api/encuestas` |
 | Gerencial | `VENTA TEORICA`, `AGOTADOS`, `EFECTIVIDAD_VISITAS` (cobertura), `MOMENTOS`, `ACTIVIDADES`, `OBSEQUIOS` | `POST /api/gerencial` |
 | Comisiones | `VENTA TEORICA`, `EFECTIVIDAD_VISITAS`, `plan de trabajo y pdv.xlsx` (hoja PDVS), `MOMENTOS` | `POST /api/comisiones` |
+| Ventas y pronóstico | `VENTA TEORICA` (uno o varios meses) y la base cruda de Forms; quedan guardadas en `datos/` | `/api/historico/*`, `POST /api/pronostico` |
 
 Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archivo se sube en la casilla equivocada, la API responde qué columnas faltan.
 
@@ -57,6 +58,17 @@ Pago de cada componente = monto × cumplimiento, con tope del 100 %.
 
 Al hacer clic en el % de Cobertura de un asesor (o en "Motivos de cobertura" para todos) se abre el desglose de visitas efectivas y no efectivas por motivo (columna `ESTADO` de EFECTIVIDAD_VISITAS).
 
+**Ventas y pronóstico** (histórico guardado en este PC)
+- El histórico vive en `datos/historico.sqlite` (excluido de GitHub). Se puede cambiar la carpeta con la variable de entorno `NEXGARD_DATOS`, por ejemplo a una carpeta de OneDrive para tener respaldo.
+- Plataforma: de cada archivo de VENTA TEÓRICA se usa la hoja de pedidos; se ignoran `VENTAS FIN DE SEMANA` (repite pedidos) e `HISTORICO` (es de otro año). Cada línea se identifica por pedido, producto, cantidad y valor: subir el mismo archivo dos veces no duplica ventas.
+- Forms: se sube la base cruda completa del link y reemplaza la anterior. Las ventas de Forms son **adicionales** a las de la plataforma. Cada celda de SKU es texto libre ("5 precio unidad $48900", "10+$39.400=197000"): se separan cantidad y precio; si no hay precio se usa la mediana del SKU en la plataforma ese mes (marcado como precio estimado). Las celdas dudosas no se cuentan hasta corregirlas en la tabla de revisión; la corrección se conserva al volver a subir la base.
+- Los SKU se unifican entre fuentes (p. ej. `NEXGARD SPECTRA 7.5 15 KG` y `SPECTRA M (7.5-15 KG)` = `Spectra 7,5-15 kg`). La cédula de Forms se nombra con la hoja FORM de VENTA TEÓRICA.
+- Gerencial puede tomar las ventas del histórico (plataforma, Forms o ambas; mensual o universal) en lugar del archivo subido.
+- Pronóstico de la venta diaria (con ambas fuentes, solo el periodo en que las dos tienen datos):
+  - Box-Jenkins: ADF y KPSS (se diferencia solo si ambas indican no estacionariedad), ACF/PACF, SARIMA(p,d,q)(P,D,Q)7 por AIC restringido a la región estacionaria e invertible, Ljung-Box y Jarque-Bera de residuos.
+  - Modelos comparados: ingenuo estacional y promedio móvil 7 días (referencia), regresión con día de la semana, Holt-Winters, SARIMA, bagging, random forest y XGBoost (rezagos 1, 7, 14, media móvil y calendario; pronóstico recursivo).
+  - Validación de origen móvil (hasta 4 cortes de `horizonte` días); RMSE, MAE y MAPE; prueba de Diebold-Mariano (corrección HLN) de cada modelo contra el mejor. El pronóstico final usa el de menor RMSE, con banda del 95 % según el error de validación.
+
 ## Estructura
 
 ```
@@ -67,6 +79,9 @@ backend/gerencial.py   indicadores gerenciales
 backend/modelo.py      estadística (tendencia, pronóstico, pruebas)
 backend/comisiones.py  indicadores de comisiones
 backend/asesores.py    nombre único de asesor entre archivos
+backend/historico.py   histórico de ventas (SQLite): plataforma + Forms
+backend/forms.py       lectura de la base cruda de Forms (cantidad y precio desde el texto)
+backend/pronostico.py  Box-Jenkins, SARIMA, modelos clásicos y de aprendizaje automático
 Frontend/              interfaz (un solo HTML)
 ```
 

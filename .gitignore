@@ -6,3 +6,6 @@ gerencial/
 status encuestas/
 *.csv
 *.xlsx
+
+# Histórico de ventas guardado por la app (solo en este PC)
+datos/

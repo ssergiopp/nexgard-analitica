@@ -76,6 +76,23 @@ def leer(data: bytes, nombre: str, hoja=None) -> pd.DataFrame:
         raise
     except Exception as e:  # noqa: BLE001
         raise ErrorArchivo(f"No se pudo leer '{nombre}': {e}") from e
+    return _normalizar(df)
+
+
+def leer_hojas(data: bytes, nombre: str) -> dict:
+    """Todas las hojas de un Excel (o el CSV como una sola hoja), con columnas normalizadas."""
+    if not data:
+        raise ErrorArchivo(f"El archivo '{nombre}' está vacío.")
+    try:
+        if nombre.lower().endswith(".csv"):
+            return {"CSV": _normalizar(_csv(data))}
+        libro = pd.read_excel(io.BytesIO(data), sheet_name=None)
+    except Exception as e:  # noqa: BLE001
+        raise ErrorArchivo(f"No se pudo leer '{nombre}': {e}") from e
+    return {k: _normalizar(v) for k, v in libro.items()}
+
+
+def _normalizar(df: pd.DataFrame) -> pd.DataFrame:
     # Nombres normalizados; si dos columnas quedan con el mismo nombre (p. ej. "Precio total" y "PRECIO_TOTAL"),
     # se usa la primera y las demás se renombran NOMBRE_2, NOMBRE_3…
     vistos, nombres = {}, []

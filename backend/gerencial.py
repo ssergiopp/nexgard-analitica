@@ -21,6 +21,8 @@ def ventas(df):
         "estado": df["ESTADO_PEDIDO"].map(limpio) if "ESTADO_PEDIDO" in df else "",
         "pedido": df["ID_PEDIDO"] if "ID_PEDIDO" in df else df.index,
         "pdv": num(df["ID_SUCURSAL"]) if "ID_SUCURSAL" in df else np.nan,
+        "fuente": df["FUENTE"] if "FUENTE" in df else "",
+        "estimado": df["PRECIO_ESTIMADO"].astype(bool) if "PRECIO_ESTIMADO" in df else False,
     })
     # Líneas con cantidad ≥ 100 y ≥ 20 veces la mediana del SKU: error de digitación, se excluyen.
     med = d.groupby("sku").q.transform("median")
@@ -46,6 +48,10 @@ def ventas(df):
         "familia": pares(d.groupby(d.sku.map(familia)).v.sum() / 1e6, 2),
         "regional": pares(d.groupby("reg").v.sum() / 1e6, 2),
         "estado": pares(d.groupby("estado").v.sum() / 1e6, 2),
+        # Histórico con dos fuentes (plataforma + Forms): aporte de cada una y ventas de Forms con precio estimado
+        "fuente": pares(d.groupby("fuente").v.sum() / 1e6, 2) if d.fuente.nunique() > 1 or d.fuente.ne("").any() else [],
+        "fuente_unidades": pares(d.groupby("fuente").q.sum(), 0) if d.fuente.ne("").any() else [],
+        "estimado_valor": r(d[d.estimado].v.sum() / 1e6, 2),
         "asesores": [[a, r(x.q, 0), r(x.v / 1e6, 2), int(x.pedidos)] for a, x in asesor.iterrows()],
         "_diaria": d.groupby("f").v.sum() / 1e6,
         "_pdv": d.dropna(subset=["pdv"]).groupby("pdv").v.sum(),

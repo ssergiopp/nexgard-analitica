@@ -70,7 +70,8 @@ small{font-size:.875rem}
 .tabl,.pet figcaption{display:none}
 @media (max-width:760px){.hero{grid-template-columns:1fr;gap:24px}.pet{aspect-ratio:16/9}}
 
-.home{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.home{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:1100px){.home{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:820px){.home{grid-template-columns:1fr}}
 .tile{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer;
   padding:22px 48px 22px 22px;border:0;border-radius:var(--r-lg);background:var(--sf);color:var(--ink);box-shadow:var(--shadow);
@@ -249,6 +250,14 @@ td.ajustado .pct s{background:var(--ac)!important}
 }
 
 
+/* Ventas y pronóstico */
+.vin2{display:flex;gap:6px;align-items:center}.vin2 input{width:92px;background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:5px 8px;color:var(--ink)}
+.pmejor td{font-weight:600;background:var(--tint)}
+.bjg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}@media (max-width:760px){.bjg{grid-template-columns:1fr}}
+.bjg h3{font-size:1rem;margin:0 0 6px}
+svg .fcl{fill:none;stroke:var(--ac);stroke-width:2.2}svg .fcb{fill:var(--ac);opacity:.16}svg .sar{fill:none;stroke:var(--mut);stroke-width:1.4;stroke-dasharray:4 4}
+svg .cb{fill:var(--g)}svg .cb.sig{fill:var(--ac)}svg .lim{stroke:var(--mut);stroke-dasharray:3 3;stroke-width:1}
+
 /* Zoom de cobertura */
 tr.tot td{font-weight:600;border-top:2px solid var(--bd);background:var(--sf2)}
 .cobz{cursor:pointer;border-radius:var(--r-sm)}.cobz:hover{box-shadow:0 0 0 2px var(--g)}.cobz:focus-visible{outline:2px solid var(--g)}
@@ -336,6 +345,7 @@ h2.sec[aria-expanded="false"]::after{rotate:-45deg;translate:0 0}
     <button class="tile primary" id="go"><span class="go">→</span><b>Evaluación de encuestas</b><small>Cargar bases, ver encuestados, faltantes y respuestas.</small></button>
     <button class="tile" id="gg"><span class="go">→</span><b>Informe gerencial</b><small>Ventas, agotados, cobertura y actividades con modelo de tendencia y predicción.</small></button>
     <button class="tile" id="gc"><span class="go">→</span><b>Comisiones</b><small>Sell Out, cobertura, activaciones y SGI: comisión de cada asesor.</small></button>
+    <button class="tile" id="gv"><span class="go">→</span><b>Ventas y pronóstico</b><small>Histórico de plataforma y Forms, Box-Jenkins, SARIMA y aprendizaje automático.</small></button>
   </div>
 </section>
 
@@ -382,9 +392,24 @@ h2.sec[aria-expanded="false"]::after{rotate:-45deg;translate:0 0}
   <button class="back" id="gback">‹ Inicio</button>
   <h1 style="font-size:clamp(1.8rem,5vw,2.8rem)">Gerencial</h1>
   <div class="card ctl"><div class="up" id="gup"></div>
+    <div class="opts" style="margin:18px 0 0"><label class="flt">Ventas desde <select id="gvf"><option value="">El archivo subido</option><option value="ambas">Histórico: plataforma + Forms</option><option value="plataforma">Histórico: solo plataforma</option><option value="forms">Histórico: solo Forms</option></select></label>
+      <label class="flt" id="gvmw" hidden>Periodo <select id="gvm"></select></label></div>
     <button class="btn" id="gen" style="margin-top:18px" disabled>Generar</button>
     <p class="note" id="gh" style="margin-top:10px">Carga los seis archivos para activar Generar.</p></div>
   <div class="res" id="gres"></div>
+</section>
+<section id="ven" hidden>
+  <button class="back" id="vback">‹ Inicio</button>
+  <h1 style="font-size:clamp(1.8rem,5vw,2.8rem)">Ventas y pronóstico</h1>
+  <div class="card ctl"><h2>Cargar ventas al histórico</h2>
+    <div class="up">
+      <label class="drop"><b>VENTA TEÓRICA</b><span data-n>Uno o varios archivos .xlsx o .csv</span><input type="file" id="vplat" multiple accept=".csv,.xlsx"></label>
+      <label class="drop"><b>Forms (base cruda)</b><span data-n>La base completa descargada del link</span><input type="file" id="vforms" accept=".csv,.xlsx"></label>
+    </div>
+    <button class="btn" id="vguardar" style="margin-top:18px" disabled>Guardar en el histórico</button>
+    <p class="note" id="vh" style="margin-top:10px">Cada mes sube solo el archivo nuevo de VENTA TEÓRICA y la base de Forms actualizada. Las líneas repetidas no se cuentan dos veces y los datos quedan guardados en este PC.</p>
+  </div>
+  <div class="res show" id="vres"></div>
 </section>
 <section id="com" hidden>
   <button class="back" id="cback">‹ Inicio</button>
@@ -582,8 +607,15 @@ function scat(pts,xl,yl,fx,fy){const W=360,H=230,L=54,R=14,T=14,B=40,xm=Math.min
 const gn=["Ventas","% Agotados","Cobertura","Momentos","Actividades","Obsequios"],gf=Array(6).fill(null);
 $("#gup").innerHTML=gn.map((n,i)=>`<label class="drop"><b>${n}</b><span data-n>Insertar .csv o .xlsx</span><input type="file" accept=".csv,.xlsx" data-g="${i}"></label>`).join("");
 let GAS="";
-$("#gup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{GAS="";const i=+inp.dataset.g,f=inp.files[0]||null,d=inp.parentElement;gf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);const ok=gf.every(Boolean);$("#gen").disabled=!ok;$("#gh").textContent=ok?"Listo para generar.":"Carga los seis archivos para activar Generar."});
-$("#gg").onclick=()=>{home.hidden=true;$("#ger").hidden=false;scrollTo(0,0);vg()};
+$("#gup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{GAS="";const i=+inp.dataset.g,f=inp.files[0]||null,d=inp.parentElement;gf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);gchk()});
+function gchk(){const h=!!$("#gvf").value,ok=gf.every((f,i)=>f||(h&&i===0));$("#gen").disabled=!ok;$("#gvmw").hidden=!h;
+  $("#gh").textContent=ok?"Listo para generar.":h?"Carga los otros cinco archivos para activar Generar.":"Carga los seis archivos para activar Generar."}
+// Meses guardados en el histórico, para el periodo de Ventas en Gerencial
+async function mesesHist(){try{const H=await(await fetch("/api/historico")).json();const ms=(H.meses||[]).map(m=>m.mes);
+  $("#gvm").innerHTML='<option value="">Universal (todo el histórico)</option>'+ms.map(m=>`<option value="${m}">Mensual: ${MESN(m)}</option>`).join("");return H}catch(e){return null}}
+const MESN=m=>{const[a,b]=m.split("-");return["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][+b-1]+" "+a};
+$("#gvf").onchange=()=>{GAS="";gchk()};
+$("#gg").onclick=()=>{home.hidden=true;$("#ger").hidden=false;scrollTo(0,0);vg();mesesHist()};
 $("#gback").onclick=()=>{$("#ger").hidden=true;home.hidden=false;vg()};
 let n=60,d0=Date.UTC(2026,7,24),Y,FM,dw=i=>new Date(d0+i*864e5).getUTCDay(),wk=i=>[0,5,6].includes(dw(i)),fd=i=>{const d=new Date(d0+i*864e5);return d.getUTCDate()+"/"+(d.getUTCMonth()+1)};
 // Serie diaria con zoom; model=1 agrega tendencia y pronóstico a 14 días con banda del 95 %.
@@ -614,7 +646,8 @@ function trend(F){const W=400,H=230,L=40,RX=W-10,X=i=>L+i/Math.max(n-1,1)*(RX-L)
   return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia">${o}<text class="tx" x="${L}" y="${H-8}">${fd(0)}</text><text class="tx" x="${RX}" y="${H-8}" text-anchor="end">${fd(n-1)}</text><text class="tx" x="${L}" y="12">millones por día</text></svg>`}
 
 $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momentos","actividades","obsequios"],fdat=new FormData();
-  keys.forEach((k,i)=>{if(gf[i])fdat.append(k,gf[i])});if(GAS)fdat.append("asesor",GAS);const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
+  const vf=$("#gvf").value;keys.forEach((k,i)=>{if(gf[i]&&!(vf&&i===0))fdat.append(k,gf[i])});if(GAS)fdat.append("asesor",GAS);
+  if(vf){fdat.append("ventas_fuente",vf);fdat.append("ventas_mes",$("#gvm").value)}const b=$("#gen");b.disabled=true;$("#gh").textContent="Procesando…";let D;
   try{D=await api("/api/gerencial",fdat);$("#gh").textContent="Listo."}catch(e){$("#gh").textContent=e.message;b.disabled=false;return}b.disabled=false;
   const M=v=>v==null?"–":(Math.abs(v)<1?Math.round(v*100)/100:r1(v)).toLocaleString("es-CO")+" M",P=pc1,T=(h,rows)=>`<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   const G=(t,it,f,nota="")=>it&&it.length?C(t,(nota?`<p class="note">${nota}</p>`:"")+hb(it,f)):"",g2=(...c)=>{c=c.filter(Boolean);return c.length?`<div class="g2">${c.join("")}</div>`:""};
@@ -630,6 +663,7 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
     (S?C(`Venta por día · ${V.kpi.desde} a ${V.kpi.hasta}`,'<div id="t1"></div>'):"")+
     g2(G("Venta por SKU (millones)",V.sku_valor,M),G("Unidades por SKU",V.sku_unidades,v=>nf(v)+" uds"))+
     g2(G("Venta por familia (millones)",V.familia,M),G("Venta por regional (millones)",V.regional,M))+
+    (V.fuente&&V.fuente.length?g2(G("Venta por fuente (millones)",V.fuente,M,V.estimado_valor?`${M(V.estimado_valor)} de Forms tienen precio estimado (mediana del SKU en la plataforma) porque la celda no traía precio.`:""),G("Unidades por fuente",V.fuente_unidades,v=>nf(v)+" uds")):"")+
     (V.estado.length>1?g2(G("Venta por estado del pedido (millones)",V.estado,M)):"")+
     C("Ranking de asesores",T(["#","Asesor","Unidades","Venta"],V.asesores.map((r,i)=>[i+1,r[0],nf(r[1]),M(r[2])])))}
   if(A){h+=SEC("Agotados")+`<div class="kg">${K("Agotado (sobre lo medido)",P(A.kpi.pct_agotado))}${K("Agotado (sobre manejantes)",P(A.kpi.pct_agotado_manejantes))}${K("Presente",P(A.kpi.pct_presente))}${K("No manejante",P(A.kpi.pct_no_manejante))}${K("PdV medidos",nf(A.kpi.pdv))}${A.kpi.pct_causal_generica!=null?K("Causal genérica (“AGOTADO”, “NO APLICA”)",P(A.kpi.pct_causal_generica)):""}</div>`+
@@ -667,6 +701,82 @@ const cmeta=()=>Math.round(+$("#cmeta").value),cmon=()=>[0,1,2,3].map(i=>Math.ma
 function cchk(){const ok=cf.every(Boolean)&&cmeta()>0;$("#ccal").disabled=!ok;if(!CD)$("#chint").textContent=ok?"Listo para calcular.":"Carga los cuatro archivos y escribe la meta mensual de unidades.";if(CD&&cmeta()>0)cupd()}
 $("#cup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{const i=+inp.dataset.c,f=inp.files[0]||null,d=inp.parentElement;cf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);cchk()});
 ["#cmeta","#m0","#m1","#m2","#m3"].forEach(s=>$(s).oninput=cchk);
+// ===== VENTAS Y PRONÓSTICO =====
+let VH=null;
+const MM=v=>v==null?"–":(v/1e6).toLocaleString("es-CO",{maximumFractionDigits:1})+" M";
+$("#gv").onclick=()=>{home.hidden=true;$("#ven").hidden=false;scrollTo(0,0);vg();cargarHist()};
+$("#vback").onclick=()=>{$("#ven").hidden=true;home.hidden=false;vg()};
+const vchk=()=>{$("#vguardar").disabled=!($("#vplat").files.length||$("#vforms").files.length)};
+["#vplat","#vforms"].forEach(s=>$(s).onchange=()=>{const i=$(s),d=i.parentElement;d.querySelector("[data-n]").textContent=i.files.length?[...i.files].map(f=>f.name).join(", "):(s==="#vplat"?"Uno o varios archivos .xlsx o .csv":"La base completa descargada del link");d.classList.toggle("on",!!i.files.length);vchk()});
+async function cargarHist(){try{const r=await fetch("/api/historico");VH=await r.json();if(!r.ok)throw new Error(VH.error);pintarHist()}catch(e){$("#vres").innerHTML=`<p class="note">${esc(e.message||"No se pudo leer el histórico.")}</p>`}}
+$("#vguardar").onclick=async()=>{const b=$("#vguardar");b.disabled=true;$("#vh").textContent="Guardando…";const msg=[];
+  try{if($("#vplat").files.length){const fd=new FormData();[...$("#vplat").files].forEach(f=>fd.append("archivos",f));const R=await api("/api/historico/plataforma",fd);VH=R;
+      R.cargas.forEach(c=>msg.push(`${c.archivo}: ${nf(c.nuevas)} líneas nuevas${c.repetidas?`, ${nf(c.repetidas)} ya estaban`:""}`))}
+    if($("#vforms").files.length){const fd=new FormData();fd.append("archivo",$("#vforms").files[0]);const R=await api("/api/historico/forms",fd);VH=R;msg.push(`Forms: ${nf(R.carga.respuestas)} respuestas (reemplaza la base anterior)`)}
+    $("#vh").textContent="Guardado. "+msg.join(" · ");["#vplat","#vforms"].forEach(s=>{$(s).value="";$(s).onchange()});pintarHist()}
+  catch(e){$("#vh").textContent=e.message}finally{vchk()}};
+function pintarHist(){const H=VH,ms=H.meses||[];
+  const fila=m=>{const p=m.Plataforma||{},f=m.Forms||{};return`<tr><td>${MESN(m.mes)}</td><td>${MM(p.valor)}</td><td>${nf(p.unidades)}</td><td>${MM(f.valor)}</td><td>${nf(f.unidades)}</td><td><b>${MM((p.valor||0)+(f.valor||0))}</b></td><td>${f.estimadas?nf(f.estimadas):"–"}</td><td>${f.dudas?`<b style="color:var(--ac)">${f.dudas}</b>`:"–"}</td><td class="noprint">${p.lineas?`<button type="button" class="vdel" data-mes="${m.mes}">Quitar plataforma</button>`:""}</td></tr>`};
+  const tot=k=>ms.reduce((s,m)=>s+((m.Plataforma||{})[k]||0)+((m.Forms||{})[k]||0),0),tp=k=>ms.reduce((s,m)=>s+((m.Plataforma||{})[k]||0),0),tf=k=>ms.reduce((s,m)=>s+((m.Forms||{})[k]||0),0);
+  let h=C("Histórico guardado",ms.length?`<div class="tw"><table><thead><tr><th>Mes</th><th>Plataforma</th><th>Unidades</th><th>Forms</th><th>Unidades</th><th>Total</th><th>Forms con precio estimado</th><th>Forms por revisar</th><th class="noprint"></th></tr></thead><tbody>${ms.map(fila).join("")}</tbody>
+    <tfoot><tr class="tot"><td>Total</td><td>${MM(tp("valor"))}</td><td>${nf(tp("unidades"))}</td><td>${MM(tf("valor"))}</td><td>${nf(tf("unidades"))}</td><td>${MM(tot("valor"))}</td><td>${nf(tf("estimadas"))}</td><td>${nf(tf("dudas"))}</td><td class="noprint"></td></tr></tfoot></table></div>
+    <p class="note" style="margin-top:10px">Forms con precio estimado: la celda traía la cantidad pero no el precio; se usa el precio mediano del SKU en la plataforma ese mes. Guardado en ${esc(H.carpeta)}.</p>`:'<p class="note">Todavía no hay ventas guardadas. Sube los archivos arriba.</p>');
+  const RV=H.revision||[];
+  if(RV.length)h+=C(`Forms: celdas por revisar <span class="chip">${RV.length}</span>`,`<p class="note">No se pudo leer con seguridad la cantidad o el precio. Mientras no se corrijan, no se cuentan. Escribe las unidades y el precio unitario (0 unidades = no hubo venta).</p>
+    <div class="tw"><table><thead><tr><th>Fecha</th><th>Quién reporta</th><th>PdV</th><th>SKU</th><th>Escrito</th><th>Motivo</th><th class="noprint">Corrección</th></tr></thead><tbody>${RV.map(x=>`<tr><td>${esc(x[1])}</td><td>${esc(x[2])}</td><td>${esc(x[3])}</td><td>${esc(x[4])}</td><td><b>${esc(x[5])}</b></td><td>${esc(x[6])}</td>
+    <td class="noprint"><div class="vin2"><input type="number" min="0" step="1" placeholder="Unid." value="${x[7]??""}" aria-label="Unidades"><input type="number" min="0" step="100" placeholder="Precio" value="${x[8]??""}" aria-label="Precio unitario"><button type="button" class="vin vcor" data-id="${x[0]}" data-sku="${esc(x[4])}">Guardar</button></div></td></tr>`).join("")}</tbody></table></div>`);
+  h+=`<div class="card"><h2>Pronóstico de la venta diaria</h2><p class="note">Compara modelos de referencia, clásicos, Box-Jenkins (SARIMA) y aprendizaje automático con validación de origen móvil, y pronostica con el de menor error. Tarda unos 20 segundos.</p>
+    <div class="opts" style="margin:14px 0"><label class="flt">Ventas <select id="pfu"><option value="ambas">Plataforma + Forms</option><option value="plataforma">Solo plataforma</option><option value="forms">Solo Forms</option></select></label>
+    <label class="flt">Horizonte <select id="pho"><option value="7">7 días</option><option value="14" selected>14 días</option><option value="28">28 días</option></select></label>
+    <button class="btn" id="pcal"${ms.length?"":" disabled"}>Calcular pronóstico</button></div><p class="note" id="phint"></p></div><div id="pres"></div>`;
+  $("#vres").innerHTML=h;
+  $("#vres").querySelectorAll(".vdel").forEach(b=>b.onclick=async()=>{if(!confirm(`¿Quitar del histórico las ventas de la plataforma de ${MESN(b.dataset.mes)}? Se pueden volver a subir.`))return;const fd=new FormData();fd.append("fuente","PLATAFORMA");fd.append("mes",b.dataset.mes);VH=await api("/api/historico/borrar",fd);pintarHist()});
+  $("#vres").querySelectorAll(".vcor").forEach(b=>b.onclick=async()=>{const[q,pr]=b.parentElement.querySelectorAll("input");if(q.value===""){q.focus();return}
+    const fd=new FormData();fd.append("id_resp",b.dataset.id);fd.append("sku",b.dataset.sku);fd.append("unidades",q.value);fd.append("precio",pr.value);VH=await api("/api/historico/correccion",fd);pintarHist()});
+  $("#pcal").onclick=pronosticar;interactivo($("#vres"))}
+// Serie real + pronóstico del mejor modelo (banda 95 %) y SARIMA (punteado)
+function fchart(D){const k0=Math.max(0,D.y.length-63),y=D.y.slice(k0),P=D.pronostico,SA=D.pronostico_sarima,n=y.length,h=P.valor.length,N=n+h,W=680,H=250,L=44,R=12,T=16,B=30;
+  const mx=Math.max(...y,...P.hi,...SA.hi.map(v=>Math.min(v,Math.max(...y)*1.5)))*1.08||1,X=i=>L+i/(N-1)*(W-L-R),Yv=v=>T+(H-T-B)*(1-Math.min(Math.max(v,0),mx)/mx);
+  const fec=i=>{const d=new Date(Date.parse(D.desde)+(k0+i)*864e5);return d.getUTCDate()+"/"+(d.getUTCMonth()+1)};
+  let o=[0,1,2,3].map(k=>`<line class="gl" x1="${L}" x2="${W-R}" y1="${Yv(mx*k/3)}" y2="${Yv(mx*k/3)}"/><text class="tx" x="${L-6}" y="${Yv(mx*k/3)+3}" text-anchor="end">${r1(mx*k/3)}</text>`).join("");
+  o+=`<polyline class="ln" points="${y.map((v,i)=>X(i)+","+Yv(v)).join(" ")}"/>`;
+  const up=P.hi.map((v,k)=>X(n+k)+","+Yv(v)),lo=P.lo.map((v,k)=>X(n+k)+","+Yv(v)).reverse();
+  o+=`<polygon class="fcb" points="${up.concat(lo).join(" ")}"/><polyline class="sar" points="${SA.valor.map((v,k)=>X(n+k)+","+Yv(v)).join(" ")}"/><polyline class="fcl" points="${[X(n-1)+","+Yv(y[n-1])].concat(P.valor.map((v,k)=>X(n+k)+","+Yv(v))).join(" ")}"/>`;
+  y.forEach((v,i)=>o+=`<circle class="hit dot" tabindex="0" data-t="${fec(i)}: ${r1(v)} M" cx="${X(i)}" cy="${Yv(v)}" r="2.2"/>`);
+  P.valor.forEach((v,k)=>o+=`<circle class="hit dot fc" tabindex="0" data-t="${fec(n+k)} pronóstico (${esc(P.modelo)}): ${r1(v)} M (95 %: ${r1(P.lo[k])} a ${r1(P.hi[k])}) · SARIMA ${r1(SA.valor[k])} M" cx="${X(n+k)}" cy="${Yv(v)}" r="3.2"/>`);
+  const st=Math.ceil(N/9);let ax="";for(let i=0;i<N;i+=st)ax+=`<text class="tx" x="${X(i)}" y="${H-8}" text-anchor="middle">${fec(i)}</text>`;
+  ax+=`<line class="fit" x1="${X(n-.5)}" x2="${X(n-.5)}" y1="${T}" y2="${Yv(0)}" style="stroke-dasharray:3 4;stroke-width:1.2"/><text class="tx" x="${X(n-.5)+6}" y="${T+10}">Pronóstico</text>`;
+  return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Venta diaria y pronóstico">${o}${ax}<text class="tx" x="${L}" y="10">millones por día</text></svg>`}
+// Autocorrelaciones (ACF / PACF) con el límite ±1,96/√n
+function corr(v,lim,tit){const W=330,H=170,L=30,T=14,B=22,m=Math.max(1e-3,...v.map(Math.abs),lim)*1.1,cw=(W-L-6)/v.length,Y0=T+(H-T-B)/2,Yv=x=>Y0-x/m*(H-T-B)/2;
+  let o=`<line class="gl" x1="${L}" x2="${W}" y1="${Y0}" y2="${Y0}"/><line class="lim" x1="${L}" x2="${W}" y1="${Yv(lim)}" y2="${Yv(lim)}"/><line class="lim" x1="${L}" x2="${W}" y1="${Yv(-lim)}" y2="${Yv(-lim)}"/><text class="tx" x="${L-4}" y="${Yv(lim)+3}" text-anchor="end">${r1(lim*10)/10}</text>`;
+  v.forEach((x,i)=>{const s=Math.abs(x)>lim,y1=Yv(Math.max(x,0)),y2=Yv(Math.min(x,0));o+=`<rect class="cb${s?" sig":""} hit" tabindex="0" data-t="${tit} rezago ${i+1}: ${x.toLocaleString("es-CO")}${s?" (significativo)":""}" x="${L+i*cw+cw*.18}" y="${y1}" width="${cw*.64}" height="${Math.max(y2-y1,1)}"/>`;if((i+1)%7===0)o+=`<text class="tx" x="${L+i*cw+cw/2}" y="${H-6}" text-anchor="middle">${i+1}</text>`});
+  return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${tit}">${o}</svg>`}
+async function pronosticar(){const b=$("#pcal");b.disabled=true;$("#phint").textContent="Calculando… (ajusta y valida 8 modelos)";let D;
+  try{const fd=new FormData();fd.append("fuente",$("#pfu").value);fd.append("horizonte",$("#pho").value);D=await api("/api/pronostico",fd)}catch(e){$("#phint").textContent=e.message;b.disabled=false;return}
+  b.disabled=false;if(D.aviso){$("#phint").textContent=D.aviso;$("#pres").innerHTML="";return}$("#phint").textContent="";
+  const BJ=D.box_jenkins,Vd=D.validacion,best=D.comparacion[0],Tn=D.tendencia,p3=v=>v==null?"–":v<0.001?"< 0,001":v.toLocaleString("es-CO"),sig=p=>p!=null&&p<0.05;
+  const ord=`SARIMA(${BJ.orden.join(",")})(${BJ.orden_estacional.slice(0,3).join(",")})<sub>7</sub>`,FU={ambas:"plataforma + Forms",plataforma:"solo plataforma",forms:"solo Forms"}[D.fuente];
+  let h=`<div class="kg">${K("Periodo analizado",`${D.desde.split("-").reverse().join("/")} a ${D.hasta.split("-").reverse().join("/")}`)}${K("Días",nf(D.n))}${K("Mejor modelo",esc(D.mejor))}${K(`Venta pronosticada (${D.horizonte} días)`,r1(D.pronostico.total).toLocaleString("es-CO")+" M")}${K("Mejora frente a la referencia",best.mejora_vs_referencia!=null?r1(best.mejora_vs_referencia).toLocaleString("es-CO")+" %":"–")}</div>`;
+  h+=C(`Venta diaria y pronóstico <span class="chip">Predictiva</span>`,`<p class="note">Ventas de ${FU}, en millones por día. Se muestran las últimas 9 semanas. Naranja: pronóstico de ${esc(D.mejor)} con banda del 95 % (error de la validación). Punteado gris: SARIMA.</p>${fchart(D)}`,"wide");
+  h+=C(`Comparación de modelos <span class="chip">Validación</span>`,`<div class="tw"><table><thead><tr><th>#</th><th>Modelo</th><th>Familia</th><th>RMSE (M)</th><th>MAE (M)</th><th>MAPE</th><th>Mejora vs. referencia</th><th>Diebold-Mariano vs. el mejor</th></tr></thead><tbody>${D.comparacion.map(x=>x.error?`<tr><td>–</td><td>${esc(x.modelo)}</td><td>${esc(x.familia)}</td><td colspan="5">No se pudo ajustar: ${esc(x.error)}</td></tr>`:
+    `<tr class="${x.puesto===1?"pmejor":""}"><td>${x.puesto}</td><td>${esc(x.modelo)}</td><td>${esc(x.familia)}</td><td>${x.rmse.toLocaleString("es-CO")}</td><td>${x.mae.toLocaleString("es-CO")}</td><td>${x.mape!=null?r1(x.mape).toLocaleString("es-CO")+" %":"–"}</td><td>${x.mejora_vs_referencia!=null?r1(x.mejora_vs_referencia).toLocaleString("es-CO")+" %":"–"}</td><td>${x.puesto===1?"—":`p = ${p3(x.dm_p)}${sig(x.dm_p)?" · <b>peor</b>":" · sin diferencia"}`}</td></tr>`).join("")}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Validación de origen móvil: ${Vd.pliegues} cortes (${Vd.cortes.map(c=>c.split("-").reverse().slice(0,2).join("/")).join(", ")}); en cada uno el modelo se entrena con los días anteriores y pronostica ${D.horizonte} días que no vio (${Vd.dias_evaluados} días evaluados). Se ordena por RMSE. MAPE solo sobre días con venta; con muchos días de venta baja se infla, por eso no se usa para elegir. Diebold-Mariano: p < 0,05 = el modelo es significativamente peor que el mejor; p ≥ 0,05 = la diferencia puede ser azar.</p>`);
+  const adf=BJ.adf,kp=BJ.kpss,LB=BJ.ljung_box,JB=BJ.jarque_bera,lbok=LB.every(x=>x[2]>=0.05);
+  h+=C(`Metodología Box-Jenkins <span class="chip">${ord}</span>`,`<div class="bjg">
+    <div><h3>1. Identificación</h3><p>Dickey-Fuller aumentada: estadístico ${adf.estadistico.toLocaleString("es-CO")}, p = ${p3(adf.p)} (${adf.estacionaria?"rechaza raíz unitaria":"no rechaza raíz unitaria"}).${kp?` KPSS: p = ${p3(kp.p)} (${kp.p<0.05?"rechaza":"no rechaza"} estacionariedad).`:""}</p>
+      <p>${BJ.d?"Las dos pruebas indican que la serie no es estacionaria: se diferencia una vez (d = 1).":"La serie se trata como estacionaria (d = 0): solo se diferencia si ADF y KPSS coinciden en que no lo es, para no sobrediferenciar."} Estacionalidad semanal (s = 7).</p>
+      <p class="note">ACF y PACF${BJ.d?" de la serie diferenciada":""}; en naranja los rezagos fuera del límite ±1,96/√n. Los picos en 7 y 14 muestran el patrón semanal.</p>
+      <p style="margin:10px 0 0"><b>ACF</b> · autocorrelación</p>${corr(BJ.acf,BJ.limite,"ACF")}<p style="margin:10px 0 0"><b>PACF</b> · autocorrelación parcial</p>${corr(BJ.pacf,BJ.limite,"PACF")}</div>
+    <div><h3>2. Estimación</h3><p>Se probaron ${"órdenes p, q de 0 a 2 y P, Q de 0 a 1"} y se eligió el de menor AIC (restringido a la región estacionaria e invertible): <b>${ord}</b>, AIC ${BJ.aic.toLocaleString("es-CO")}, BIC ${BJ.bic.toLocaleString("es-CO")}.</p>
+      <div class="tw"><table><thead><tr><th>Parámetro</th><th>Estimación</th><th>Error est.</th><th>p</th></tr></thead><tbody>${BJ.coeficientes.map(c=>`<tr><td>${esc(c[0])}</td><td>${c[1].toLocaleString("es-CO")}</td><td>${c[2].toLocaleString("es-CO")}</td><td>${p3(c[3])}</td></tr>`).join("")}</tbody></table></div>
+      <p class="note" style="margin-top:8px">Siguientes por AIC: ${BJ.candidatos.slice(1).map(c=>`(${c[0].join(",")})(${c[1].slice(0,3).join(",")})<sub>7</sub> ${c[2].toLocaleString("es-CO")}`).join(" · ")}</p>
+      <h3 style="margin-top:16px">3. Diagnóstico de residuos</h3><p>Ljung-Box: ${LB.map(x=>`rezago ${x[0]} p = ${p3(x[2])}`).join(", ")} → ${lbok?"<b>los residuos se comportan como ruido blanco</b>; el modelo captó la estructura de autocorrelación.":"<b>queda autocorrelación</b> en los residuos; conviene revisar el orden."}</p>
+      <p>Jarque-Bera: p = ${p3(JB.p)} → ${JB.p<0.05?"los residuos no son normales (días con ventas muy altas), por eso la banda del pronóstico final usa el error de la validación.":"no se rechaza normalidad."}</p>
+      <h3 style="margin-top:16px">4. Pronóstico</h3><p>SARIMA pronostica <b>${r1(D.pronostico_sarima.total).toLocaleString("es-CO")} M</b> en ${D.horizonte} días (punteado en la gráfica).</p></div></div>`);
+  if(Tn)h+=C(`Tendencia <span class="chip">Inferencial</span>`,`<p>La venta cambia <b>${Tn.pendiente.toLocaleString("es-CO")} M por día</b> (IC 95 % ${Tn.ic95[0].toLocaleString("es-CO")} a ${Tn.ic95[1].toLocaleString("es-CO")}); la tendencia ${Tn.significativa?"<b>es estadísticamente significativa</b>":"<b>no es estadísticamente significativa</b>"} (p = ${p3(Tn.p_valor)}).</p><p class="note">Regresión lineal con efecto del día de la semana sobre todo el periodo.</p>`);
+  $("#pres").innerHTML=h.replaceAll("= < ","< ");tips($("#pres"));interactivo($("#pres"));$("#pres").scrollIntoView({behavior:"smooth"})}
+
 $("#gc").onclick=()=>{home.hidden=true;$("#com").hidden=false;scrollTo(0,0);vg()};
 $("#cback").onclick=()=>{$("#com").hidden=true;home.hidden=false;vg()};
 // Ajustes manuales: {asesor: {0: %, 1: %, 3: %}} reemplazan el % calculado de Sell Out, Cobertura y SGI.

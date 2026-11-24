@@ -5,6 +5,8 @@ if not exist ".venv\Scripts\python.exe" (
   python -m venv .venv || goto :error
   ".venv\Scripts\python.exe" -m pip install -q -r requirements.txt || goto :error
 )
+rem Instala lo que falte si se agregaron dependencias nuevas (rapido si ya esta todo)
+".venv\Scripts\python.exe" -m pip install -q -r requirements.txt || goto :error
 start "" http://localhost:8000
 ".venv\Scripts\python.exe" -m uvicorn app:app --app-dir backend --port 8000
 echo.
