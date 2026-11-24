@@ -693,12 +693,12 @@ $("#gen").onclick=async()=>{const keys=["ventas","agotados","cobertura","momento
 
 // ===== COMISIONES (indicadores en el backend: POST /api/comisiones; el pago se calcula aquí) =====
 // Pago de cada componente = monto × min(cumplimiento, 100 %). Máximo por asesor = suma de montos.
-const cf=[null,null,null,null],cn=["Ventas (venta teórica)","Cobertura (efectividad visitas)","Rutero (plan de trabajo y pdv)","Momentos"],ck=["ventas","cobertura","rutero","momentos"];
+const cf=[null,null,null,null,null],cn=["Ventas plataforma (venta teórica)","Cobertura (efectividad visitas)","Rutero (plan de trabajo y pdv)","Momentos","Ventas link (Forms, opcional)"],ck=["ventas","cobertura","rutero","momentos","forms"];
 let CD=null,act={};try{act=JSON.parse(localStorage.getItem("nx_act")||"{}")}catch(e){}
 const pesos=v=>"$ "+Math.round(v).toLocaleString("es-CO"),pc=v=>v==null||!isFinite(v)?"–":(Math.round(v*10)/10).toLocaleString("es-CO")+" %";
 $("#cup").innerHTML=cn.map((n,i)=>`<label class="drop"><b>${n}</b><span data-n>Insertar .csv o .xlsx</span><input type="file" accept=".csv,.xlsx" data-c="${i}"></label>`).join("");
 const cmeta=()=>Math.round(+$("#cmeta").value),cmon=()=>[0,1,2,3].map(i=>Math.max(0,+$("#m"+i).value||0));
-function cchk(){const ok=cf.every(Boolean)&&cmeta()>0;$("#ccal").disabled=!ok;if(!CD)$("#chint").textContent=ok?"Listo para calcular.":"Carga los cuatro archivos y escribe la meta mensual de unidades.";if(CD&&cmeta()>0)cupd()}
+function cchk(){const ok=cf.slice(0,4).every(Boolean)&&cmeta()>0;$("#ccal").disabled=!ok;if(!CD)$("#chint").textContent=ok?(cf[4]?"Listo para calcular (Sell Out con plataforma + Forms).":"Listo para calcular. Si subes la base de Forms, el Sell Out suma también esas ventas."):"Carga los cuatro archivos obligatorios y escribe la meta mensual de unidades. Las ventas del link (Forms) son opcionales.";if(CD&&cmeta()>0)cupd()}
 $("#cup").querySelectorAll("input").forEach(inp=>inp.onchange=()=>{const i=+inp.dataset.c,f=inp.files[0]||null,d=inp.parentElement;cf[i]=f;d.querySelector("[data-n]").textContent=f?f.name:"Insertar .csv o .xlsx";d.classList.toggle("on",!!f);cchk()});
 ["#cmeta","#m0","#m1","#m2","#m3"].forEach(s=>$(s).oninput=cchk);
 // ===== VENTAS Y PRONÓSTICO =====
@@ -802,7 +802,7 @@ function cfila(a){const meta=cmeta(),M=cmon(),av=act[a.asesor],o=adj[a.asesor]||
 const bar=v=>`<div class="pct${v>=100?" ok":""}"><i><s style="width:${Math.min(Math.max(v||0,0),100)}%"></s></i><b>${pc(v)}</b></div>`;
 function cupd(){let tot=0,nAj=0;const M=cmon(),max=M.reduce((x,y)=>x+y,0);
   CD.asesores.forEach((a,i)=>{const F=cfila(a);tot+=F.t;const tr=$(`#cr${i}`);
-    tr.querySelector('[data-c="0"] .det').textContent=`${a.unidades} / ${cmeta()||"–"}`;
+    tr.querySelector('[data-c="0"] .det').innerHTML=`${a.unidades} / ${cmeta()||"–"}`+(CD.forms?`<br><small style="color:var(--mut)">Plataforma ${nf(a.unidades_plataforma)} · Forms ${nf(a.unidades_forms)}</small>`:"");
     [0,1,3].forEach(k=>{const td=tr.querySelector(`[data-c="${k}"]`);td.querySelector(".bw").innerHTML=bar(F.c[k]);td.classList.toggle("ajustado",F.aj[k]);
       td.querySelector(".ajn").textContent=F.aj[k]?`Ajustado · calculado ${pc(F.calc[k])}`:"";td.querySelector(".adj").placeholder=F.calc[k]==null?"–":String(Math.round(F.calc[k]*10)/10);if(F.aj[k])nAj++});
     F.p.forEach((v,k)=>tr.querySelector(`[data-p="${k}"]`).textContent=pesos(v));tr.querySelector("[data-t]").innerHTML=`<b>${pesos(F.t)}</b>`});
@@ -814,6 +814,9 @@ function celda(a,k,det){const v=(adj[a.asesor]||{})[k];
 function crender(){const A=CD.asesores;
   $("#cres").innerHTML=`${CD.alertas.length?`<div class="card alerta" style="margin-top:20px">${CD.alertas.map(x=>`<p class="note">${esc(x)}</p>`).join("")}</div>`:""}
   <p class="note ponly pfecha"></p><p class="ponly" id="cparam"></p><div class="cm-kpis" id="ckpi"></div>
+  ${CD.forms?(Fo=>`<div class="card"><h2>Ventas del link (Forms) en el Sell Out</h2><p>Se tomaron las activaciones del <b>${Fo.desde}</b> al <b>${Fo.hasta}</b> (mismo periodo de la venta teórica): ${nf(Fo.respuestas)} reportes con ${nf(Fo.unidades)} unidades, de las cuales <b>${nf(Fo.asignadas)}</b> se sumaron al Sell Out de asesores de la hoja PDVS.</p>
+    ${Fo.en_revision?`<p class="note">${nf(Fo.en_revision)} celdas no se contaron porque la cantidad o el precio no se pudieron leer con seguridad. Corrígelas en Ventas y pronóstico y vuelve a calcular.</p>`:""}
+    ${Fo.sin_asesor.length?`<p class="note">Sin asesor identificado (no suman a nadie): ${Fo.sin_asesor.map(x=>`${esc(x[0])} (${nf(x[1])} und)`).join(", ")}. Son cédulas que no aparecen en la hoja FORM de la venta teórica.</p>`:""}</div>`)(CD.forms):""}
   <div class="card"><div class="cm-bar"><h2>Comisión por asesor</h2><div class="cm-btns noprint"><button class="btn alt" id="cedit" style="padding:10px 20px" aria-pressed="false">Ajustar calificaciones</button><button class="btn alt" id="ccob" style="padding:10px 20px">Motivos de cobertura</button><button class="btn alt" id="ccopy" style="padding:10px 20px">Copiar tabla para Excel</button><button class="btn alt" id="cpdf" style="padding:10px 20px">Descargar PDF</button></div></div>
   <div class="ajbar noprint" id="cajbar" hidden><p class="note" style="margin:0">Escribe el % que quieres otorgar en Sell Out, Cobertura o SGI. Vacío = usa el valor calculado (se muestra en gris). ↺ quita el ajuste.</p><button class="btn alt" id="cclr" style="padding:8px 16px">Quitar todos los ajustes</button></div>
   <div class="tw"><table id="ctab"><thead><tr><th>Asesor</th><th>Sell Out<br><small>unidades / meta</small></th><th>Cobertura<br><small>efectivas / programadas</small></th><th>Activaciones<br><small>calificación %</small></th><th>SGI<br><small>jornadas completas / días</small></th><th>$ Sell Out</th><th>$ Cobertura</th><th>$ Activaciones</th><th>$ SGI</th><th>Total</th></tr></thead>
@@ -828,7 +831,7 @@ function crender(){const A=CD.asesores;
   $("#cres").querySelectorAll(".rst").forEach(b=>b.onclick=()=>{const i=b.previousElementSibling;i.value="";setAdj(b.dataset.a,b.dataset.k,"")});
   $("#cedit").onclick=()=>{const on=!$("#ctab").classList.toggle("edit")?false:true;$("#cedit").setAttribute("aria-pressed",on);$("#cedit").textContent=on?"Listo":"Ajustar calificaciones";$("#cajbar").hidden=!on};
   $("#cclr").onclick=()=>{if(!Object.keys(adj).length)return;adj={};savAdj();$("#cres").querySelectorAll(".adj").forEach(i=>i.value="");cupd()};
-  $("#ccopy").onclick=async()=>{const b=$("#ccopy"),t=["Asesor\tUnidades\t% Sell Out\t% Cobertura\t% Activaciones\t% SGI\tSell Out\tCobertura\tActivaciones\tSGI\tTotal\tAjustes manuales",...A.map(a=>{const F=cfila(a),f=v=>v==null||!isFinite(v)?"":String(Math.round(v*10)/10).replace(".",",");return[a.asesor,a.unidades,...F.c.map(f),...F.p.map(v=>Math.round(v)),Math.round(F.t),[0,1,3].filter(k=>F.aj[k]).map(k=>`${ITN[k]} (calculado ${f(F.calc[k])})`).join("; ")].join("\t")})].join("\n");
+  $("#ccopy").onclick=async()=>{const b=$("#ccopy"),t=["Asesor\tUnidades\tUnidades plataforma\tUnidades Forms\t% Sell Out\t% Cobertura\t% Activaciones\t% SGI\tSell Out\tCobertura\tActivaciones\tSGI\tTotal\tAjustes manuales",...A.map(a=>{const F=cfila(a),f=v=>v==null||!isFinite(v)?"":String(Math.round(v*10)/10).replace(".",",");return[a.asesor,a.unidades,a.unidades_plataforma??"",a.unidades_forms??"",...F.c.map(f),...F.p.map(v=>Math.round(v)),Math.round(F.t),[0,1,3].filter(k=>F.aj[k]).map(k=>`${ITN[k]} (calculado ${f(F.calc[k])})`).join("; ")].join("\t")})].join("\n");
     try{await navigator.clipboard.writeText(t);b.textContent="Copiada"}catch(e){b.textContent="No se pudo copiar"}setTimeout(()=>b.textContent="Copiar tabla para Excel",2500)};
   $("#cpdf").onclick=()=>imprimir("Comisiones NexGard");
   $("#ccob").onclick=()=>cobZoom(null);
@@ -850,7 +853,7 @@ function cobZoom(nombre){const A=nombre==null?CD.asesores:CD.asesores.filter(a=>
     d.querySelector(".vclose").onclick=()=>d.close();d.querySelectorAll(".cobtab button").forEach(b=>b.onclick=()=>{modo=b.dataset.m;pintar()})};
   pintar();d.showModal()}
 document.addEventListener("click",e=>{if(e.target.id==="cobdlg")e.target.close()});
-$("#ccal").onclick=async()=>{const fd=new FormData();ck.forEach((k,i)=>fd.append(k,cf[i]));const b=$("#ccal");b.disabled=true;$("#chint").textContent="Procesando…";
+$("#ccal").onclick=async()=>{const fd=new FormData();ck.forEach((k,i)=>{if(cf[i])fd.append(k,cf[i])});const b=$("#ccal");b.disabled=true;$("#chint").textContent="Procesando…";
   try{CD=await api("/api/comisiones",fd);$("#chint").textContent="Listo. Escribe la calificación de activaciones de cada asesor.";crender()}catch(e){$("#chint").textContent=e.message}finally{b.disabled=false}};
 
 </script>

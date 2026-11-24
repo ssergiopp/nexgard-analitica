@@ -17,7 +17,7 @@ Manual: `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
 |---|---|---|
 | Encuestas | `CADENAS.xlsx`, `plan de trabajo y pdv.xlsx` (hoja **PDVS**), una encuesta (`precios`, `distribuidores`, `atrevia y canilaner`) | `POST /api/encuestas` |
 | Gerencial | `VENTA TEORICA`, `AGOTADOS`, `EFECTIVIDAD_VISITAS` (cobertura), `MOMENTOS`, `ACTIVIDADES`, `OBSEQUIOS` | `POST /api/gerencial` |
-| Comisiones | `VENTA TEORICA`, `EFECTIVIDAD_VISITAS`, `plan de trabajo y pdv.xlsx` (hoja PDVS), `MOMENTOS` | `POST /api/comisiones` |
+| Comisiones | `VENTA TEORICA`, `EFECTIVIDAD_VISITAS`, `plan de trabajo y pdv.xlsx` (hoja PDVS), `MOMENTOS` y, opcional, la base cruda de Forms | `POST /api/comisiones` |
 | Ventas y pronóstico | `VENTA TEORICA` (uno o varios meses) y la base cruda de Forms; quedan guardadas en `datos/` | `/api/historico/*`, `POST /api/pronostico` |
 
 Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archivo se sube en la casilla equivocada, la API responde qué columnas faltan.
@@ -49,12 +49,16 @@ Acepta `.csv` (separador `;` o `,`, UTF‑8 o Latin‑1) y `.xlsx`. Si un archiv
 
 | Componente | Monto | Cumplimiento |
 |---|---|---|
-| Sell Out | $50.000 | Unidades de VENTA TEÓRICA ÷ meta mensual de unidades (igual para todos) |
+| Sell Out | $50.000 | (Unidades de VENTA TEÓRICA + unidades de Forms del mismo periodo) ÷ meta mensual de unidades (igual para todos) |
 | Cobertura – cumplimiento ruta | $80.000 | Visitas efectivas ÷ suma de FRECUENCIA MES de los PdV a cargo |
 | Activaciones | $20.000 | Calificación manual (0–100 %), guardada en el navegador |
 | SGI | $50.000 | Días con inicio y fin de jornada (MOMENTOS) ÷ días trabajados |
 
 Pago de cada componente = monto × cumplimiento, con tope del 100 %.
+
+Si se sube la base de Forms, se toman las activaciones desde el día 1 del primer mes de la venta teórica hasta su última fecha. Quien reporta se identifica por cédula → ID de usuario (hoja FORM del libro de VENTA TEÓRICA o histórico) → asesor; si no hay ID, por similitud del nombre con la hoja PDVS. Las celdas en duda no se cuentan (salvo que ya estén corregidas en Ventas y pronóstico) y las cédulas sin asesor se listan aparte.
+
+VENTA TEÓRICA puede subirse en CSV o en el Excel del área de análisis: en Gerencial y Comisiones se toma la hoja de pedidos y se ignoran `VENTAS FIN DE SEMANA` e `HISTORICO`.
 
 Al hacer clic en el % de Cobertura de un asesor (o en "Motivos de cobertura" para todos) se abre el desglose de visitas efectivas y no efectivas por motivo (columna `ESTADO` de EFECTIVIDAD_VISITAS).
 

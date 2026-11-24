@@ -45,17 +45,45 @@ def _ced(v) -> str:
     return re.sub(r"\.0$", "", limpio(v))
 
 
-# ---------- Carga ----------
-def cargar_plataforma(hojas: dict, archivo: str) -> dict:
-    """hojas: {nombre: DataFrame} de un archivo de VENTA TEÓRICA. Usa la hoja de pedidos (no 'VENTAS FIN DE SEMANA',
-    que repite pedidos, ni 'HISTORICO', que es de otro año) y, si existe, la hoja FORM para nombrar las cédulas."""
-    req = {"CANTIDAD", "PRECIO_TOTAL", "DESCRIPCION_PRODUCTO", "FECHA_CAPTURA", "ID_PEDIDO"}
+# ---------- Lectura de VENTA TEÓRICA (también la usan Gerencial y Comisiones) ----------
+def hoja_pedidos(hojas: dict, archivo: str) -> pd.DataFrame:
+    """La hoja de pedidos de un archivo de VENTA TEÓRICA. Se ignoran 'VENTAS FIN DE SEMANA' (repite pedidos),
+    'HISTORICO' (es de otro año) y las hojas de tablas dinámicas."""
+    req = {"CANTIDAD", "PRECIO_TOTAL", "DESCRIPCION_PRODUCTO", "FECHA_CAPTURA"}
     cand = {k: v for k, v in hojas.items() if req <= set(v.columns)
             and not re.search(r"FIN\s*DE\s*SEMANA|HISTORICO", k.upper())}
     if not cand:
         raise ErrorArchivo(f"'{archivo}' no tiene una hoja de pedidos de VENTA TEÓRICA "
-                           "(CANTIDAD, PRECIO_TOTAL, DESCRIPCION_PRODUCTO, FECHA_CAPTURA, ID_PEDIDO).")
-    df = max(cand.values(), key=len)
+                           "(CANTIDAD, PRECIO_TOTAL, DESCRIPCION_PRODUCTO, FECHA_CAPTURA).")
+    return max(cand.values(), key=len)
+
+
+def mapa_cedulas(hojas: dict) -> list:
+    """[(cédula, nombre, ID de usuario)] de la hoja FORM del libro de VENTA TEÓRICA, si la trae."""
+    fm = next((v for v in hojas.values() if {"CEDULA", "NOMBRE_COMPLETO"} <= set(v.columns)), None)
+    if fm is None:
+        return []
+    m = fm.dropna(subset=["CEDULA"])
+    return [(_ced(x["CEDULA"]), limpio(x["NOMBRE_COMPLETO"]), _ced(x.get("ID_ASESOR", ""))) for _, x in m.iterrows()]
+
+
+def guardado_forms() -> tuple[dict, dict]:
+    """Correcciones de celdas de Forms y cédulas conocidas que ya están en el histórico (si existe)."""
+    if not BD.exists():
+        return {}, {}
+    with _con() as c:
+        corr = {(int(a), b): (q, p) for a, b, q, p in c.execute("SELECT id_resp, sku, unidades, precio FROM forms_corr")}
+        ced = {a: (b, i) for a, b, i in c.execute("SELECT cedula, nombre, id_asesor FROM cedulas")}
+    return corr, ced
+
+
+# ---------- Carga ----------
+def cargar_plataforma(hojas: dict, archivo: str) -> dict:
+    """hojas: {nombre: DataFrame} de un archivo de VENTA TEÓRICA: guarda la hoja de pedidos y, si existe, la hoja FORM
+    para nombrar las cédulas."""
+    df = hoja_pedidos(hojas, archivo)
+    if "ID_PEDIDO" not in df:
+        raise ErrorArchivo(f"'{archivo}' no trae ID_PEDIDO: no se puede guardar sin duplicar ventas.")
     t = pd.DataFrame({
         "fecha": fecha(df["FECHA_CAPTURA"]).dt.strftime("%Y-%m-%d"),
         "asesor": df["ASESOR"].map(limpio) if "ASESOR" in df else "",
@@ -79,11 +107,7 @@ def cargar_plataforma(hojas: dict, archivo: str) -> dict:
                       t.astype(object).where(t.notna(), None).values.tolist())
         nuevas = c.execute("SELECT COUNT(*) FROM plataforma").fetchone()[0] - antes
         # Cédula -> nombre e ID de usuario (hoja FORM del mismo libro), para nombrar a quien reporta en Forms.
-        fm = next((v for k, v in hojas.items() if {"CEDULA", "NOMBRE_COMPLETO"} <= set(v.columns)), None)
-        if fm is not None:
-            m = fm[["CEDULA", "NOMBRE_COMPLETO"] + (["ID_ASESOR"] if "ID_ASESOR" in fm else [])].dropna(subset=["CEDULA"])
-            c.executemany("INSERT OR REPLACE INTO cedulas VALUES(?,?,?)",
-                          [(_ced(x.CEDULA), limpio(x.NOMBRE_COMPLETO), _ced(getattr(x, "ID_ASESOR", ""))) for x in m.itertuples()])
+        c.executemany("INSERT OR REPLACE INTO cedulas VALUES(?,?,?)", mapa_cedulas(hojas))
         c.execute("INSERT INTO cargas VALUES(?,?,?,?,?)", (datetime.now().isoformat(timespec="seconds"), "PLATAFORMA",
                                                            archivo, len(t), nuevas))
     return {"archivo": archivo, "filas": len(t), "nuevas": nuevas, "repetidas": len(t) - nuevas}

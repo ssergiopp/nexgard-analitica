@@ -72,13 +72,28 @@ async def api_encuestas(
                               _json(vinculos))
 
 
+async def _leer_ventas(f: UploadFile):
+    """VENTA TEÓRICA en CSV o en el Excel del área de análisis (se toma la hoja de pedidos). Devuelve también las
+    cédulas de la hoja FORM, si el libro la trae."""
+    data = await f.read()
+    if len(data) > MAX_MB * 1024 * 1024:
+        raise ErrorArchivo(f"'{f.filename}' supera {MAX_MB} MB.")
+    hojas = leer_hojas(data, f.filename or "ventas")
+    return historico.hoja_pedidos(hojas, f.filename or "ventas"), historico.mapa_cedulas(hojas)
+
+
 @app.post("/api/comisiones")
 async def api_comisiones(
     ventas: UploadFile = File(...), cobertura: UploadFile = File(...),
     rutero: UploadFile = File(...), momentos: UploadFile = File(...),
+    forms: UploadFile | None = File(None),
 ):
-    return comisiones.analizar(await _leer(ventas), await _leer(cobertura), await _leer(rutero, "PDVS"),
-                               await _leer(momentos))
+    v, ced_libro = await _leer_ventas(ventas)
+    corr, ced = historico.guardado_forms()
+    ced.update({c: (n, i) for c, n, i in ced_libro})
+    fo = await _leer(forms) if forms is not None and forms.filename else None
+    return comisiones.analizar(v, await _leer(cobertura), await _leer(rutero, "PDVS"), await _leer(momentos),
+                               fo, ced, corr)
 
 
 @app.post("/api/gerencial")
@@ -90,7 +105,8 @@ async def api_gerencial(
 ):
     subidos = dict(ventas=ventas, agotados=agotados, cobertura=cobertura, momentos=momentos,
                    actividades=actividades, obsequios=obsequios)
-    arch = {k: await _leer(f) for k, f in subidos.items() if f is not None and f.filename}
+    arch = {k: (await _leer_ventas(f))[0] if k == "ventas" else await _leer(f)
+            for k, f in subidos.items() if f is not None and f.filename}
     if ventas_fuente:  # ventas desde el histórico guardado (plataforma, Forms o ambas), del mes o universal
         arch["ventas"] = historico.ventas_df(ventas_fuente, ventas_mes or None)
     if not arch:
